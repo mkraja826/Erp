@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getPublishedCourse } from "../../../lib/learning";
+import LearnerGuide from "../../../components/LearnerGuide";
 import ExerciseCard from "./ExerciseCard";
 import LessonGate from "./LessonGate";
 
@@ -36,7 +37,7 @@ export default async function CoursePage({ params }: PageProps) {
         <div className="courseStats"><div><strong>{course.course_modules.length}</strong><span>Modules</span></div><div><strong>{lessons.length}</strong><span>Lessons</span></div><div><strong>{totalMinutes}</strong><span>Minutes</span></div></div>
       </section>
 
-      <section className="learningRule"><strong>One small step at a time</strong><span>Understand why → See a business example → Try it yourself → Ask AI only if stuck → Verify</span></section>
+      <section className="learningRule"><strong>One small step at a time</strong><span>Learn simply → Answer one easy question → See feedback → Continue</span></section>
 
       <div className="courseContent">
         {course.course_modules.map((module) => (
@@ -47,6 +48,7 @@ export default async function CoursePage({ params }: PageProps) {
               const content = lesson.content as LessonContent;
               const lessonIndex = lessons.findIndex((item) => item.id === lesson.id);
               const previousLessonId = lessonIndex > 0 ? lessons[lessonIndex - 1].id : undefined;
+              const nextLesson = lessons[lessonIndex + 1];
               const whyItMatters = content.whyItMatters ?? lesson.summary;
               const remember = content.remember ?? content.goal;
               return (
@@ -54,6 +56,15 @@ export default async function CoursePage({ params }: PageProps) {
                   <article className="lessonCard">
                     <div className="lessonMeta"><span>{lesson.lesson_type}</span><span>{lesson.estimated_minutes} min</span><span>Lesson {lessonIndex + 1} of {lessons.length}</span></div>
                     <h3>{lesson.title}</h3>
+
+                    <LearnerGuide
+                      learning={content.goal ?? lesson.title}
+                      learningDetail="Read the short explanation and remember the key idea."
+                      now="Learn the idea, then answer the quick check"
+                      nowDetail="Questions use multiple choice or a short answer so you can focus on understanding."
+                      next={nextLesson ? nextLesson.title : "Move into guided ERP practice"}
+                      nextDetail={nextLesson ? "A correct answer unlocks the next lesson." : "After the course, you apply the same ideas in realistic business tasks."}
+                    />
 
                     {whyItMatters && <section className="microBlock whyBlock"><span className="microLabel">Why this matters</span><p>{whyItMatters}</p></section>}
                     {content.goal && <p className="lessonGoal"><strong>By the end:</strong> {content.goal}</p>}
@@ -66,7 +77,7 @@ export default async function CoursePage({ params }: PageProps) {
                     {content.quickCheck && <div className="quickCheck"><strong>Think before you click</strong><p>{content.quickCheck}</p></div>}
                     {remember && <div className="rememberStrip"><strong>Remember:</strong><span>{remember}</span></div>}
 
-                    <div className="practiceDivider"><span>Now do it yourself</span></div>
+                    <div className="practiceDivider"><span>Quick check</span></div>
                     {lesson.exercises.map((exercise) => <ExerciseCard key={exercise.id} exercise={exercise} />)}
                   </article>
                 </LessonGate>
@@ -76,7 +87,7 @@ export default async function CoursePage({ params }: PageProps) {
         ))}
       </div>
 
-      <section className="workLabTeaser"><span className="eyebrow">After course completion</span><h2>Your Work Lab unlocks next</h2><p>Training guidance reduces and you start handling realistic junior SAP MM tasks like an employee.</p></section>
+      <section className="workLabTeaser"><span className="eyebrow">After course completion</span><h2>Your Work Lab unlocks next</h2><p>Guidance reduces gradually as you move from simple learning into realistic junior SAP MM work.</p></section>
     </main>
   );
 }
