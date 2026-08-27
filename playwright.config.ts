@@ -11,10 +11,10 @@ export default defineConfig({
     trace: 'retain-on-failure'
   },
   webServer: {
-    command: 'npm run dev',
+    command: process.env.CI ? 'npm run build && npm start' : 'npm run dev',
     url: 'http://127.0.0.1:3000',
     reuseExistingServer: !process.env.CI,
-    timeout: 120000
+    timeout: 180000
   },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
