@@ -3,6 +3,7 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   testDir: './tests',
   fullyParallel: true,
+  workers: process.env.CI ? 1 : undefined,
   retries: 1,
   reporter: 'list',
   use: {
