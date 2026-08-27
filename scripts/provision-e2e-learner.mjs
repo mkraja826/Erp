@@ -41,9 +41,13 @@ async function restRequest(path, init = {}) {
   return body;
 }
 
-function workLabEmail(base) {
+function taggedEmail(base, tag) {
   const at = base.lastIndexOf('@');
-  return at > 0 ? `${base.slice(0, at)}+worklab${base.slice(at)}` : `${base}+worklab`;
+  return at > 0 ? `${base.slice(0, at)}+${tag}${base.slice(at)}` : `${base}+${tag}`;
+}
+
+function workLabEmail(base) {
+  return taggedEmail(base, 'worklab');
 }
 
 const usersPage = await authRequest('admin/users?page=1&per_page=1000');
@@ -62,6 +66,7 @@ async function ensureUser(targetEmail, fullName, purpose) {
     return existing.id;
   }
   const created = await authRequest('admin/users', { method: 'POST', body: JSON.stringify(attributes) });
+  users.push(created);
   return created.id;
 }
 
@@ -115,3 +120,27 @@ if (verifiedProgress?.length !== lessons.length || enrollment?.status !== 'compl
 }
 
 console.log(`Work Lab E2E learner refreshed, confirmed, and seeded with ${lessons.length}/${lessons.length} completed lessons.`);
+
+const isolationAEmail = taggedEmail(email, 'isolation-a');
+const isolationBEmail = taggedEmail(email, 'isolation-b');
+await ensureUser(isolationAEmail, 'ERP Edu Isolation Learner A', 'ci-e2e-isolation-a');
+const isolationBUserId = await ensureUser(isolationBEmail, 'ERP Edu Isolation Learner B', 'ci-e2e-isolation-b');
+
+await restRequest('enrollments?on_conflict=user_id,course_id', {
+  method: 'POST',
+  headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+  body: JSON.stringify({
+    user_id: isolationBUserId,
+    course_id: courseId,
+    status: 'active',
+    progress_percent: 42,
+    completed_at: null,
+  }),
+});
+
+const isolationEnrollment = await restRequest(`enrollments?user_id=eq.${isolationBUserId}&course_id=eq.${courseId}&select=user_id,status,progress_percent&limit=1`);
+if (isolationEnrollment?.[0]?.user_id !== isolationBUserId || Number(isolationEnrollment?.[0]?.progress_percent) !== 42) {
+  throw new Error(`Isolation learner seed verification failed: ${JSON.stringify(isolationEnrollment)}`);
+}
+
+console.log('Cross-user isolation learners refreshed and private marker enrollment seeded.');
