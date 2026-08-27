@@ -4,6 +4,7 @@ import "./erp-practice.css";
 import "./erp-shell.css";
 import "./procurement-flow.css";
 import "./microlearning.css";
+import "./mobile-v2.css";
 
 export const metadata: Metadata = {
   title: "ERP Edu | Learn SAP by Doing",
