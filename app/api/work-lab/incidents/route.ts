@@ -22,7 +22,11 @@ async function getContext(request:Request){
 }
 
 async function ensureIncidents(userId:string,token:string){
-  const docs=await supabaseRest<Doc[]>(`erp_documents?user_id=eq.${userId}&select=document_number,document_type,status,header,items&order=created_at.asc`,{},token);
+  const [docs,existingIncidents]=await Promise.all([
+    supabaseRest<Doc[]>(`erp_documents?user_id=eq.${userId}&select=document_number,document_type,status,header,items&order=created_at.asc`,{},token),
+    supabaseRest<Array<{incident_type:string;source_document_number:string|null}>>(`work_lab_incidents?user_id=eq.${userId}&select=incident_type,source_document_number`,{},token),
+  ]);
+  const existingKeys=new Set(existingIncidents.map(row=>`${row.incident_type}::${row.source_document_number??""}`));
   const pos=docs.filter(d=>canonicalDocumentType(d.document_type)==="PO");const grs=docs.filter(d=>canonicalDocumentType(d.document_type)==="GR");const ivs=docs.filter(d=>canonicalDocumentType(d.document_type)==="IV");
   const candidates:Array<Record<string,unknown>>=[];
   for(const iv of ivs.filter(d=>d.status==="blocked")){
@@ -34,20 +38,19 @@ async function ensureIncidents(userId:string,token:string){
     if(linked.length===0)candidates.push({user_id:userId,incident_type:"po_no_receipt",title:"Purchase order has no goods receipt",description:`PO ${po.document_number} is posted but no goods receipt exists. Determine what is missing from the process and what must be confirmed before proceeding.`,priority:"normal",source_document_number:po.document_number,expected_resolution:{root_cause_terms:["no goods receipt","goods not received","receipt missing","delivery not posted"],resolution_terms:["confirm delivery","post goods receipt","check warehouse","verify delivery"],linked_document:po.document_number}});
     else if(received<ordered)candidates.push({user_id:userId,incident_type:"partial_receipt",title:"Purchase order is only partially received",description:`PO ${po.document_number} still has open quantity. Investigate the receipts and explain the remaining business action.`,priority:"normal",source_document_number:po.document_number,expected_resolution:{root_cause_terms:["partial receipt","partial delivery","open quantity","remaining quantity"],resolution_terms:["confirm remaining delivery","post remaining goods receipt","follow up supplier","close remaining quantity"],ordered_quantity:ordered,received_quantity:received}});
   }
-  for(const row of candidates){
-    const incidentType=String(row.incident_type??"");
-    const sourceDocumentNumber=String(row.source_document_number??"");
-    const existing=await supabaseRest<Array<{id:string}>>(`work_lab_incidents?user_id=eq.${userId}&incident_type=eq.${encodeURIComponent(incidentType)}&source_document_number=eq.${encodeURIComponent(sourceDocumentNumber)}&select=id&limit=1`,{},token);
-    if(existing.length>0)continue;
-    await supabaseRest("work_lab_incidents",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify(row)},token);
+  const missing=candidates.filter(row=>!existingKeys.has(`${String(row.incident_type??"")}::${String(row.source_document_number??"")}`));
+  if(missing.length>0){
+    await supabaseRest("work_lab_incidents",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify(missing)},token);
   }
 }
 
 export async function GET(request:Request){
   const ctx=await getContext(request);if(!ctx)return NextResponse.json({error:"Authentication required"},{status:401});if(!ctx.unlocked)return NextResponse.json({error:"Work Lab locked"},{status:403});
   await ensureIncidents(ctx.user.id,ctx.token);
-  const incidents=await supabaseRest<Incident[]>(`work_lab_incidents?user_id=eq.${ctx.user.id}&select=id,incident_type,title,description,priority,source_document_number,status,created_at&order=created_at.desc`,{},ctx.token);
-  const attempts=await supabaseRest<Attempt[]>(`work_lab_incident_attempts?user_id=eq.${ctx.user.id}&select=id,incident_id,score,ai_help_count,result,created_at&order=created_at.desc`,{},ctx.token);
+  const [incidents,attempts]=await Promise.all([
+    supabaseRest<Incident[]>(`work_lab_incidents?user_id=eq.${ctx.user.id}&select=id,incident_type,title,description,priority,source_document_number,status,created_at&order=created_at.desc`,{},ctx.token),
+    supabaseRest<Attempt[]>(`work_lab_incident_attempts?user_id=eq.${ctx.user.id}&select=id,incident_id,score,ai_help_count,result,created_at&order=created_at.desc`,{},ctx.token),
+  ]);
   return NextResponse.json({incidents,attempts});
 }
 
