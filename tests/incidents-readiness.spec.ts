@@ -16,6 +16,16 @@ async function signInCompletedLearner(page: import('@playwright/test').Page) {
   await expect(page).toHaveURL(/\/dashboard$/, { timeout: 20000 });
 }
 
+async function learnerAccessToken(page: import('@playwright/test').Page) {
+  return page.evaluate(() => {
+    const raw = window.localStorage.getItem('erp-edu-session');
+    if (!raw) throw new Error('Missing stored learner session');
+    const session = JSON.parse(raw) as { access_token?: string };
+    if (!session.access_token) throw new Error('Missing learner access token');
+    return session.access_token;
+  });
+}
+
 function readinessAnswers() {
   return {
     open_quantity: 35,
@@ -30,64 +40,54 @@ function readinessAnswers() {
 }
 
 test.describe('Work Lab incidents and job readiness', () => {
-  test('completed learner can resolve a generated PO incident and persist the attempt', async ({ page }) => {
+  test('completed learner can resolve a generated PO incident and persist the attempt', async ({ page, request }) => {
     await signInCompletedLearner(page);
+    const accessToken = await learnerAccessToken(page);
+    const auth = { Authorization: `Bearer ${accessToken}` };
 
-    const result = await page.evaluate(async () => {
-      const raw = window.localStorage.getItem('erp-edu-session');
-      if (!raw) throw new Error('Missing stored learner session');
-      const session = JSON.parse(raw) as { access_token?: string };
-      if (!session.access_token) throw new Error('Missing learner access token');
-      const auth = { Authorization: `Bearer ${session.access_token}` };
-      const jsonHeaders = { ...auth, 'Content-Type': 'application/json' };
-
-      const postDocResponse = await fetch('/api/erp-runtime', {
-        method: 'POST',
-        headers: jsonHeaders,
-        body: JSON.stringify({
-          documentType: 'PO',
-          header: { vendor: 'VEND-2002', plant: 'HYD1' },
-          items: [{ material: 'GLV-250', quantity: 250 }],
-        }),
-      });
-      const posted = await postDocResponse.json();
-      if (!postDocResponse.ok) throw new Error(`PO post failed: ${JSON.stringify(posted)}`);
-
-      const incidentsResponse = await fetch('/api/work-lab/incidents', { headers: auth });
-      const incidentData = await incidentsResponse.json();
-      if (!incidentsResponse.ok) throw new Error(`Incident read failed: ${JSON.stringify(incidentData)}`);
-      const incident = incidentData.incidents?.find((row: { source_document_number?: string; incident_type?: string }) =>
-        row.source_document_number === posted.documentNumber && row.incident_type === 'po_no_receipt'
-      );
-      if (!incident) throw new Error(`Expected PO incident was not generated for ${posted.documentNumber}`);
-
-      const submitResponse = await fetch('/api/work-lab/incidents', {
-        method: 'POST',
-        headers: jsonHeaders,
-        body: JSON.stringify({
-          incidentId: incident.id,
-          rootCause: 'No goods receipt has been posted for this purchase order.',
-          resolution: 'Confirm delivery with the warehouse and post goods receipt before proceeding.',
-          aiHelpCount: 0,
-        }),
-      });
-      const submission = await submitResponse.json();
-      if (!submitResponse.ok) throw new Error(`Incident submit failed: ${JSON.stringify(submission)}`);
-
-      const afterResponse = await fetch('/api/work-lab/incidents', { headers: auth });
-      const after = await afterResponse.json();
-      if (!afterResponse.ok) throw new Error(`Incident reread failed: ${JSON.stringify(after)}`);
-      return { posted, incident, submission, after };
+    const postDocResponse = await request.post('/api/erp-runtime', {
+      headers: auth,
+      data: {
+        documentType: 'PO',
+        header: { vendor: 'VEND-2002', plant: 'HYD1' },
+        items: [{ material: 'GLV-250', quantity: 250 }],
+      },
     });
+    const posted = await postDocResponse.json();
+    expect(postDocResponse.ok(), `PO post failed: ${JSON.stringify(posted)}`).toBe(true);
 
-    expect(result.submission.passed).toBe(true);
-    expect(result.submission.score).toBe(100);
-    expect(result.submission.independenceScore).toBe(100);
-    expect(result.after.incidents).toEqual(expect.arrayContaining([
-      expect.objectContaining({ id: result.incident.id, status: 'resolved' }),
+    const incidentsResponse = await request.get('/api/work-lab/incidents', { headers: auth });
+    const incidentData = await incidentsResponse.json();
+    expect(incidentsResponse.ok(), `Incident read failed: ${JSON.stringify(incidentData)}`).toBe(true);
+    const incident = incidentData.incidents?.find((row: { source_document_number?: string; incident_type?: string }) =>
+      row.source_document_number === posted.documentNumber && row.incident_type === 'po_no_receipt'
+    );
+    expect(incident, `Expected PO incident was not generated for ${posted.documentNumber}`).toBeTruthy();
+
+    const submitResponse = await request.post('/api/work-lab/incidents', {
+      headers: auth,
+      data: {
+        incidentId: incident.id,
+        rootCause: 'No goods receipt has been posted for this purchase order.',
+        resolution: 'Confirm delivery with the warehouse and post goods receipt before proceeding.',
+        aiHelpCount: 0,
+      },
+    });
+    const submission = await submitResponse.json();
+    expect(submitResponse.ok(), `Incident submit failed: ${JSON.stringify(submission)}`).toBe(true);
+
+    const afterResponse = await request.get('/api/work-lab/incidents', { headers: auth });
+    const after = await afterResponse.json();
+    expect(afterResponse.ok(), `Incident reread failed: ${JSON.stringify(after)}`).toBe(true);
+
+    expect(submission.passed).toBe(true);
+    expect(submission.score).toBe(100);
+    expect(submission.independenceScore).toBe(100);
+    expect(after.incidents).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: incident.id, status: 'resolved' }),
     ]));
-    expect(result.after.attempts).toEqual(expect.arrayContaining([
-      expect.objectContaining({ incident_id: result.incident.id, score: 100, result: 'pass', ai_help_count: 0 }),
+    expect(after.attempts).toEqual(expect.arrayContaining([
+      expect.objectContaining({ incident_id: incident.id, score: 100, result: 'pass', ai_help_count: 0 }),
     ]));
   });
 
