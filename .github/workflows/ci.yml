@@ -16,8 +16,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Install dependencies
-        run: npm install
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
       - name: Type check
         run: npm run typecheck
       - name: Next build
@@ -40,8 +43,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Install dependencies
-        run: npm install
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
       - name: Provision confirmed E2E learner
         run: node scripts/provision-e2e-learner.mjs
       - name: Install Chromium
