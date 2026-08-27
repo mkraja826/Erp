@@ -17,9 +17,9 @@ async function signIn(page: import('@playwright/test').Page) {
 }
 
 test.describe('Mobile layout regression', () => {
-  test.skip(({ browserName }, testInfo) => browserName !== 'chromium' || testInfo.project.name !== 'mobile-chromium', 'Mobile viewport only.');
+  test('public home and auth remain mobile-safe', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'mobile-chromium', 'Mobile viewport only.');
 
-  test('public home and auth remain mobile-safe', async ({ page }) => {
     await page.goto('/');
     await expect(page.getByRole('link', { name: /Start SAP MM/i })).toBeVisible();
     await expectNoHorizontalOverflow(page);
@@ -30,7 +30,9 @@ test.describe('Mobile layout regression', () => {
     await expectNoHorizontalOverflow(page);
   });
 
-  test('dashboard and course remain mobile-safe after sign in', async ({ page }) => {
+  test('dashboard and course remain mobile-safe after sign in', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'mobile-chromium', 'Mobile viewport only.');
+
     await signIn(page);
     await expect(page.getByRole('link', { name: /Start course|Continue learning/i })).toBeVisible();
     await expectNoHorizontalOverflow(page);
