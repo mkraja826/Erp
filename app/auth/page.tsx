@@ -44,20 +44,20 @@ export default function AuthPage() {
         <h1>{mode === "signin" ? "Continue your SAP journey" : "Create your learner profile"}</h1>
         <p>Your practice attempts and verified progress are saved securely to your account.</p>
 
-        <div className="authTabs">
-          <button className={mode === "signin" ? "active" : ""} onClick={() => setMode("signin")}>Sign in</button>
-          <button className={mode === "signup" ? "active" : ""} onClick={() => setMode("signup")}>Create account</button>
+        <div className="authTabs" role="tablist" aria-label="Account access">
+          <button type="button" role="tab" aria-selected={mode === "signin"} className={mode === "signin" ? "active" : ""} onClick={() => setMode("signin")}>Sign in</button>
+          <button type="button" role="tab" aria-selected={mode === "signup"} className={mode === "signup" ? "active" : ""} onClick={() => setMode("signup")}>Create account</button>
         </div>
 
         <form onSubmit={submit} className="authForm">
           {mode === "signup" && (
-            <label>Full name<input value={fullName} onChange={(e) => setFullName(e.target.value)} required /></label>
+            <label>Full name<input autoComplete="name" value={fullName} onChange={(e) => setFullName(e.target.value)} required /></label>
           )}
-          <label>Email<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></label>
-          <label>Password<input type="password" minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} required /></label>
-          <button className="primaryButton full" disabled={loading}>{loading ? "Please wait…" : mode === "signin" ? "Sign in" : "Create account"}</button>
+          <label>Email<input type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></label>
+          <label>Password<input type="password" autoComplete={mode === "signin" ? "current-password" : "new-password"} minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} required /></label>
+          <button className="primaryButton full" disabled={loading} aria-busy={loading}>{loading ? "Please wait…" : mode === "signin" ? "Sign in" : "Create account"}</button>
         </form>
-        {message && <p className="authMessage">{message}</p>}
+        {message && <p className="authMessage" role="status" aria-live="polite">{message}</p>}
       </div>
     </main>
   );
