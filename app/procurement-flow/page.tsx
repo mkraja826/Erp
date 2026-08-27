@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { getStoredSession } from "../../lib/auth-client";
+import { authenticatedFetch } from "../../lib/auth-client";
 
 type Doc = { document_number:string; document_type:string; status:string; header:Record<string,unknown>; items:Array<Record<string,unknown>>; created_at:string };
 type FlowData = { stages:{ requisition:Doc[]; purchaseOrders:Doc[]; goodsReceipts:Doc[]; invoices:Doc[] } };
@@ -18,8 +18,7 @@ export default function ProcurementFlowPage(){
   const [posting,setPosting]=useState(false);
 
   useEffect(()=>{void load();},[]);
-  async function authFetch(path:string,init:RequestInit={}){const session=getStoredSession();if(!session){window.location.href="/auth";throw new Error("No session");}return fetch(path,{...init,headers:{...(init.headers??{}),Authorization:`Bearer ${session.access_token}`}});}
-  async function load(){const [a,b]=await Promise.all([authFetch("/api/procurement-flow"),authFetch("/api/erp-runtime")]);if(a.status===401||b.status===401){window.location.href="/auth";return;}setFlow(await a.json());setRuntime(await b.json());}
+  async function load(){const [a,b]=await Promise.all([authenticatedFetch("/api/procurement-flow"),authenticatedFetch("/api/erp-runtime")]);setFlow(await a.json());setRuntime(await b.json());}
   const master=(type:string)=>runtime?.masterData.filter(x=>x.entity_type===type)??[];
   const prs=flow?.stages.requisition??[];const pos=flow?.stages.purchaseOrders??[];const grs=flow?.stages.goodsReceipts??[];const ivs=flow?.stages.invoices??[];
   const steps=useMemo(()=>[
@@ -29,7 +28,7 @@ export default function ProcurementFlowPage(){
     {key:"post_invoice" as Action,label:"4. Invoice",done:ivs.some(x=>x.status==="posted")},
   ],[prs.length,pos.length,grs.length,ivs]);
 
-  async function post(){setPosting(true);setMessage("");try{const response=await authFetch("/api/procurement-flow",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:active,data:values})});const payload=await response.json();if(!response.ok){setMessage(payload.error??"Unable to post document.");return;}setMessage(`${payload.documentNumber} posted${payload.matchStatus?` · ${payload.matchStatus}`:""}.`);setValues({});await load();if(payload.next)setActive(payload.next);}finally{setPosting(false);}}
+  async function post(){setPosting(true);setMessage("");try{const response=await authenticatedFetch("/api/procurement-flow",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:active,data:values})});const payload=await response.json();if(!response.ok){setMessage(payload.error??"Unable to post document.");return;}setMessage(`${payload.documentNumber} posted${payload.matchStatus?` · ${payload.matchStatus}`:""}.`);setValues({});await load();if(payload.next)setActive(payload.next);}finally{setPosting(false);}}
 
   function select(label:string,key:string,options:Array<{value:string;text:string}>){return <label><span>{label}</span><select value={values[key]??""} onChange={e=>setValues(v=>({...v,[key]:e.target.value}))}><option value="">Select…</option>{options.map(o=><option value={o.value} key={o.value}>{o.text}</option>)}</select></label>}
   function input(label:string,key:string,type="text"){return <label><span>{label}</span><input type={type} value={values[key]??""} onChange={e=>setValues(v=>({...v,[key]:e.target.value}))}/></label>}
