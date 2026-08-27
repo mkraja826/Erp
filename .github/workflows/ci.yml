@@ -25,6 +25,9 @@ jobs:
 
   browser-smoke:
     runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://nfgmtcfaaqfiukdxtkwy.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_MXQsC9Cv67uaCxZa25HsoQ_xDYDegE9
     steps:
       - name: Checkout
         uses: actions/checkout@v4
