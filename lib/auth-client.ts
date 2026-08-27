@@ -75,6 +75,35 @@ export async function getValidSession() {
   return refreshSession(session);
 }
 
+export async function authenticatedFetch(input: RequestInfo | URL, init: RequestInit = {}) {
+  let session = await getValidSession();
+  if (!session) {
+    if (typeof window !== "undefined") window.location.href = "/auth";
+    throw new Error("No active session.");
+  }
+
+  const perform = (accessToken: string) => fetch(input, {
+    ...init,
+    headers: { ...(init.headers ?? {}), Authorization: `Bearer ${accessToken}` },
+  });
+
+  let response = await perform(session.access_token);
+  if (response.status !== 401) return response;
+
+  session = await refreshSession(session);
+  if (!session) {
+    if (typeof window !== "undefined") window.location.href = "/auth";
+    return response;
+  }
+
+  response = await perform(session.access_token);
+  if (response.status === 401) {
+    signOut();
+    if (typeof window !== "undefined") window.location.href = "/auth";
+  }
+  return response;
+}
+
 export async function signIn(email: string, password: string) {
   const cfg = config();
   const response = await fetch(`${cfg.url}/auth/v1/token?grant_type=password`, {
