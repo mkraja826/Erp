@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
-import { getStoredSession } from "../../../lib/auth-client";
+import { authenticatedFetch } from "../../../lib/auth-client";
 
 type Incident={id:string;incident_type:string;title:string;description:string;priority:string;source_document_number:string|null;status:string;created_at:string};
 type Attempt={id:string;incident_id:string;score:number;ai_help_count:number;result:string;created_at:string};
@@ -12,9 +12,8 @@ type Result={passed:boolean;score:number;result:string;independenceScore:number;
 export default function IncidentLabPage(){
   const [data,setData]=useState<Data|null>(null);const [selected,setSelected]=useState<Incident|null>(null);const [rootCause,setRootCause]=useState("");const [resolution,setResolution]=useState("");const [aiHelp,setAiHelp]=useState(0);const [result,setResult]=useState<Result|null>(null);const [message,setMessage]=useState("");
   useEffect(()=>{void load();},[]);
-  async function request(path:string,init:RequestInit={}){const session=getStoredSession();if(!session){window.location.href="/auth";throw new Error("No session");}return fetch(path,{...init,headers:{...(init.headers??{}),Authorization:`Bearer ${session.access_token}`}});}
-  async function load(){const response=await request("/api/work-lab/incidents");if(response.status===403){setMessage("Incident Lab unlocks after SAP MM Level 1 completion.");return;}const payload=await response.json();if(!response.ok){setMessage(payload.error??"Unable to load incidents.");return;}setData(payload as Data);if(!selected&&(payload.incidents?.length??0)>0)setSelected(payload.incidents[0]);}
-  async function submit(event:FormEvent){event.preventDefault();if(!selected)return;const response=await request("/api/work-lab/incidents",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({incidentId:selected.id,rootCause,resolution,aiHelpCount:aiHelp})});const payload=await response.json();if(!response.ok){setMessage(payload.error??"Unable to submit investigation.");return;}setResult(payload as Result);setMessage("");await load();}
+  async function load(){const response=await authenticatedFetch("/api/work-lab/incidents");if(response.status===403){setMessage("Incident Lab unlocks after SAP MM Level 1 completion.");return;}const payload=await response.json();if(!response.ok){setMessage(payload.error??"Unable to load incidents.");return;}setData(payload as Data);if(!selected&&(payload.incidents?.length??0)>0)setSelected(payload.incidents[0]);}
+  async function submit(event:FormEvent){event.preventDefault();if(!selected)return;const response=await authenticatedFetch("/api/work-lab/incidents",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({incidentId:selected.id,rootCause,resolution,aiHelpCount:aiHelp})});const payload=await response.json();if(!response.ok){setMessage(payload.error??"Unable to submit investigation.");return;}setResult(payload as Result);setMessage("");await load();}
   async function askAssistant(){setAiHelp(n=>n+1);setMessage("Work assistant: start from the source document, follow predecessor/successor links, compare PO quantity/value with receipts and invoice status, then state the process break in your own words.");}
   const attempts=selected?(data?.attempts??[]).filter(a=>a.incident_id===selected.id):[];
   return <main className="dashboardPage">
