@@ -18,7 +18,7 @@ export default async function CoursePage({ params }: PageProps) {
     <main className="coursePage">
       <header className="courseTopbar">
         <Link href="/" className="brandLink">ERP Edu</Link>
-        <div className="courseTopActions"><span className="courseBadge">{course.module_code} · {course.difficulty}</span><Link href="/auth" className="secondaryButton">Learner account</Link></div>
+        <div className="courseTopActions"><span className="courseBadge">{course.module_code} · {course.difficulty}</span><Link href="/dashboard" className="secondaryButton">Dashboard</Link></div>
       </header>
 
       <section className="courseHero">
