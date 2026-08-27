@@ -20,7 +20,7 @@
 .flowDocumentList>p,.dashboardCourseCard>p:last-child,.nextStepCard>p:last-child{line-height:1.65}
 
 @media(max-width:639px){
-  .topbar{margin-left:calc(var(--ui-gutter) * -1);margin-right:calc(var(--ui-gutter) * -1);padding-left:var(--ui-gutter);padding-right:var(--ui-gutter);width:auto}
+  .topbar{width:100%;max-width:none;margin-left:0;margin-right:0;padding-left:var(--ui-gutter);padding-right:var(--ui-gutter);box-sizing:border-box}
   .hero{padding-top:34px}.hero h1{font-size:clamp(38px,12vw,50px)}.heroCopy .eyebrow{font-size:10px}.heroCopy>p{font-size:15px}
   .coachCard{margin-top:4px}.message{margin-left:0;margin-right:18px}.learnerMessage{margin-left:26px;margin-right:0}
   .section{padding-top:54px;padding-bottom:54px}.sectionHeading{gap:8px}.sectionHeading h2{font-size:34px}.stageCard{min-height:0;padding:20px}.stageCard h3{font-size:20px}
