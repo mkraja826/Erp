@@ -16,14 +16,15 @@ export function getSupabaseConfig() {
 
 export async function supabaseRest<T>(
   path: string,
-  init: RequestInit = {}
+  init: RequestInit = {},
+  accessToken?: string
 ): Promise<T> {
   const { url, key } = getSupabaseConfig();
   const response = await fetch(`${url}/rest/v1/${path}`, {
     ...init,
     headers: {
       apikey: key,
-      Authorization: `Bearer ${key}`,
+      Authorization: `Bearer ${accessToken ?? key}`,
       "Content-Type": "application/json",
       ...(init.headers ?? {}),
     },
@@ -31,12 +32,28 @@ export async function supabaseRest<T>(
   });
 
   if (!response.ok) {
-    throw new Error(`Supabase request failed: ${response.status}`);
+    const details = await response.text();
+    throw new Error(`Supabase request failed: ${response.status} ${details}`);
   }
 
   if (response.status === 204) {
     return undefined as T;
   }
 
-  return (await response.json()) as T;
+  const body = await response.text();
+  return (body ? JSON.parse(body) : undefined) as T;
+}
+
+export async function getSupabaseUser(accessToken: string) {
+  const { url, key } = getSupabaseConfig();
+  const response = await fetch(`${url}/auth/v1/user`, {
+    headers: {
+      apikey: key,
+      Authorization: `Bearer ${accessToken}`,
+    },
+    cache: "no-store",
+  });
+
+  if (!response.ok) return null;
+  return response.json() as Promise<{ id: string; email?: string }>;
 }
