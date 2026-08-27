@@ -30,5 +30,10 @@
   .dashboardPage>p:only-child,.coursePage>p:only-child{margin:28px auto;padding:18px}
 }
 
+@media(prefers-reduced-motion:reduce){
+  html:focus-within{scroll-behavior:auto}
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+}
+
 @media(min-width:640px){.ticketCard .lightButton{width:auto}.authCard{padding:34px}.authCard>.brandLink{margin-bottom:26px}}
 @media(min-width:900px){.topbar{position:static;background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none;border-bottom:0}.hero:before{width:420px;height:420px;top:-120px;right:-100px}.stageCard{min-height:260px}.authCard{padding:38px}.authPage{padding-top:48px;padding-bottom:48px}}
