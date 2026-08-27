@@ -30,8 +30,7 @@ export default function ErpTrainingShell({ title, transactionLabel, modeLabel = 
 
   useEffect(()=>{
     const timer=setTimeout(()=>{
-      void authenticatedFetch(`/api/erp-runtime?q=${encodeURIComponent(search)}`,{},false).then(async r=>{
-        if(!r)return;
+      void authenticatedFetch(`/api/erp-runtime?q=${encodeURIComponent(search)}`).then(async r=>{
         const data=await r.json() as RuntimeData;
         setRuntime(data);
       });
