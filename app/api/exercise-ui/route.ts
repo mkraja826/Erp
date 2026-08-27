@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { supabaseRest } from "../../../lib/supabase";
 
-type Row = { id: string; exercise_type: string; expected_state: { expected?: unknown } };
+type ExpectedState = { expected?: unknown; question_type?: string; options?: string[] };
+type Row = { id: string; exercise_type: string; expected_state: ExpectedState };
 
 function labelFor(key: string) {
   return key.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());
@@ -20,6 +21,14 @@ export async function GET(request: Request) {
   const rows = await supabaseRest<Row[]>(`exercises?id=eq.${exerciseId}&select=id,exercise_type,expected_state&limit=1`);
   const row = rows[0];
   if (!row) return NextResponse.json({ error: "Exercise not found" }, { status: 404 });
+
+  if (row.expected_state?.question_type === "multiple_choice" && row.expected_state.options?.length) {
+    return NextResponse.json({ mode: "multiple-choice", options: row.expected_state.options, fields: [] });
+  }
+
+  if (row.expected_state?.question_type === "fill_blank") {
+    return NextResponse.json({ mode: "single", fields: [{ key: "answer", label: "One-word answer", type: "text" }] });
+  }
 
   const expected = row.expected_state?.expected;
   if (Array.isArray(expected)) {
