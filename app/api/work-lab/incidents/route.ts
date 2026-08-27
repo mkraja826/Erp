@@ -8,6 +8,7 @@ type Attempt={id:string;incident_id:string;score:number;ai_help_count:number;res
 function tokenFrom(request:Request){const auth=request.headers.get("authorization");return auth?.startsWith("Bearer ")?auth.slice(7):undefined;}
 function normalizeText(value:string){return value.trim().toLowerCase();}
 function includesAny(text:string,terms:string[]){return terms.some(term=>text.includes(term));}
+function canonicalDocumentType(value:string){return value.trim().toUpperCase().replace(/^MM-/,"");}
 
 async function getContext(request:Request){
   const token=tokenFrom(request);if(!token)return null;
@@ -22,7 +23,7 @@ async function getContext(request:Request){
 
 async function ensureIncidents(userId:string,token:string){
   const docs=await supabaseRest<Doc[]>(`erp_documents?user_id=eq.${userId}&select=document_number,document_type,status,header,items&order=created_at.asc`,{},token);
-  const pos=docs.filter(d=>d.document_type==="PO");const grs=docs.filter(d=>d.document_type==="GR");const ivs=docs.filter(d=>d.document_type==="IV");
+  const pos=docs.filter(d=>canonicalDocumentType(d.document_type)==="PO");const grs=docs.filter(d=>canonicalDocumentType(d.document_type)==="GR");const ivs=docs.filter(d=>canonicalDocumentType(d.document_type)==="IV");
   const candidates:Array<Record<string,unknown>>=[];
   for(const iv of ivs.filter(d=>d.status==="blocked")){
     const source=String(iv.header.source_po??"");
