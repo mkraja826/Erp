@@ -30,6 +30,9 @@ jobs:
     env:
       NEXT_PUBLIC_SUPABASE_URL: https://nfgmtcfaaqfiukdxtkwy.supabase.co
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_MXQsC9Cv67uaCxZa25HsoQ_xDYDegE9
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      E2E_LEARNER_EMAIL: ${{ secrets.E2E_LEARNER_EMAIL }}
+      E2E_LEARNER_PASSWORD: ${{ secrets.E2E_LEARNER_PASSWORD }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -39,6 +42,8 @@ jobs:
           node-version: 22
       - name: Install dependencies
         run: npm install
+      - name: Provision confirmed E2E learner
+        run: node scripts/provision-e2e-learner.mjs
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
       - name: Run critical journey smoke tests
