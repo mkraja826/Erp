@@ -121,6 +121,33 @@ input,textarea,select{font-size:16px!important}
 .erpStatusBar{min-height:42px;padding:10px 12px!important;line-height:1.4}
 .flowDocumentList a{align-items:flex-start!important;flex-direction:column!important;padding:14px 0!important}
 
+/* Dashboard V2 */
+.dashboardTopbar{position:sticky;top:0;z-index:30;background:rgba(247,248,251,.94);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.dashboardUser{max-width:68%;margin-left:auto}.dashboardUser span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:150px}
+.dashboardHero{position:relative;padding-top:30px}.dashboardHero:after{content:"";position:absolute;left:0;right:0;bottom:0;height:1px;background:linear-gradient(90deg,transparent,#dde2ec 18%,#dde2ec 82%,transparent)}
+.dashboardHero h1{max-width:780px;margin-bottom:12px}.dashboardProgress{background:linear-gradient(145deg,#fff,#faf9ff);border-color:#e9e5ff;box-shadow:0 18px 46px rgba(74,63,140,.1)}
+.dashboardProgress strong{color:#4032a8;letter-spacing:-.04em}.dashboardCourseCard{position:relative;overflow:hidden}.dashboardCourseCard:before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:linear-gradient(#6c52ff,#9b87ff)}
+.dashboardCourseCard .progressTrack{height:9px;margin:20px 0 8px;background:#edeff5}.dashboardCourseCard .progressFill{border-radius:999px;background:linear-gradient(90deg,#6c52ff,#927cff)}
+.dashboardCourseCard .primaryButton{margin-top:12px;width:100%}
+.dashboardStats article{min-height:108px;justify-content:center;background:linear-gradient(145deg,#fff,#fafbfe)}
+.dashboardStats article span{line-height:1.35}.dashboardStats strong{letter-spacing:-.035em;color:#20293a}
+.nextStepCard .exerciseActions{margin-top:18px}.workGateCard{position:relative;overflow:hidden}.workGateCard.locked{background:linear-gradient(145deg,#f2f4f7,#eceff3)}.workGateCard.unlocked{background:linear-gradient(145deg,#111827,#1c2740)}
+.workGateCard .primaryButton{margin-top:16px;width:100%}.workGateStatus{margin-top:16px}
+
+/* Course and lesson V2 */
+.courseTopbar{position:sticky;top:0;z-index:35;background:rgba(247,248,251,.94);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.courseTopActions{margin-left:auto;max-width:70%}.courseTopActions .courseBadge{max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.courseTopActions .secondaryButton{padding-inline:13px}
+.courseHero{position:relative}.courseHero h1{max-width:760px}.courseStats{box-shadow:0 12px 30px rgba(33,42,66,.05)}
+.learningRule{display:grid;gap:7px;background:linear-gradient(135deg,#172033,#242f45);box-shadow:0 14px 34px rgba(23,32,51,.12)}.learningRule strong{font-size:15px}.learningRule span{font-size:13px;line-height:1.55}
+.courseModule{position:relative;padding-bottom:10px}.courseModule+.courseModule{padding-top:28px;border-top:1px solid #e2e6ee}.moduleHeading{align-items:start}.moduleNumber{box-shadow:0 8px 18px rgba(108,82,255,.12)}
+.lessonCard{position:relative;overflow:hidden;border-color:#dfe4ed;box-shadow:0 14px 38px rgba(33,42,66,.055)}.lessonCard:before{content:"";position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#6c52ff,#9b87ff 45%,transparent 82%)}
+.lessonMeta{gap:6px;margin-bottom:14px}.lessonMeta span{font-size:10px;padding:6px 8px;background:#f3f4f8;color:#667085;border:1px solid #eaecf0}
+.lessonCard>h3{line-height:1.2;letter-spacing:-.025em}.lessonGoal{margin:18px 0 0;background:#f7f5ff;border-left-width:4px;line-height:1.6}
+.microBlock{border-radius:14px;box-shadow:none}.microBlock p{font-size:15px;line-height:1.65}.termCard{border:1px solid #eceef4;background:#fafbfc}.scenarioBox,.mistakeBox,.quickCheck{line-height:1.55}.rememberStrip{border:1px solid #ccebd8}
+.practiceDivider{margin-top:30px;color:#4f46a5}.practiceDivider:before,.practiceDivider:after{background:#ddd8ff}
+.lessonExercise{margin:18px -18px -18px;padding:22px 18px 18px;background:linear-gradient(180deg,#fafaff,#f5f6fb);border-top:1px solid #e1ddff}.lessonExerciseHeader{margin-bottom:10px}.lessonExercise>h3{font-size:20px;line-height:1.25;margin:8px 0}.lessonExercise>p{font-size:14px;line-height:1.6}
+.scorePill{flex:0 0 auto}.verifyResult,.coachNote{border-radius:13px}.lessonLocked{border-width:1.5px;background:#f3f5f8}
+
 @media (min-width:640px){
   :root{--ui-gutter:24px}
   .heroActions{display:flex}.heroActions>*{width:auto}
@@ -129,12 +156,16 @@ input,textarea,select{font-size:16px!important}
   .dashboardProgress{width:156px;height:156px}
   .erpFieldGrid,.docKeyGrid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
   .erpClientActions{display:flex!important}.erpClientActions>*{width:auto}
+  .dashboardCourseCard .primaryButton,.workGateCard .primaryButton{width:auto}
+  .dashboardUser span{max-width:260px}
+  .courseTopActions .courseBadge{max-width:none}
+  .lessonExercise{margin-left:-20px;margin-right:-20px;margin-bottom:-20px;padding:24px 20px 20px}
 }
 
 @media (min-width:900px){
   :root{--ui-gutter:20px}
   .nav{display:flex}
-  .topbar,.courseTopbar,.dashboardTopbar{min-height:76px;padding:0}
+  .topbar,.courseTopbar,.dashboardTopbar{min-height:76px;padding:0;position:static;background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none}
   .hero{grid-template-columns:1.15fr .85fr;gap:64px;padding:78px 0 88px}
   .section{padding:86px 0}.workSection{padding:92px 0}
   .splitSection{grid-template-columns:1.05fr .95fr;gap:56px}
@@ -145,6 +176,7 @@ input,textarea,select{font-size:16px!important}
   .courseHero{grid-template-columns:1fr auto;gap:48px;align-items:end;padding:64px 0 34px}
   .courseStats{width:auto;display:flex}
   .lessonCard,.lessonLocked{margin-left:76px;padding:26px}
+  .lessonExercise{margin-left:-26px;margin-right:-26px;margin-bottom:-26px;padding:26px}
   .dashboardHero{grid-template-columns:1fr auto;gap:36px;align-items:end;padding:56px 0 30px}
   .dashboardProgress{width:180px;height:180px;justify-self:auto}
   .dashboardGrid{grid-template-columns:1.2fr .8fr;gap:22px}
@@ -152,6 +184,7 @@ input,textarea,select{font-size:16px!important}
   .dashboardCourseCard,.nextStepCard,.workGateCard{padding:28px}
   .certificateSection{grid-template-columns:auto 1fr auto;gap:24px}.scoreBadge{grid-column:auto;width:auto}
   .footer{flex-direction:row;align-items:center;gap:20px}
+  .dashboardUser{max-width:none}.dashboardUser span{max-width:360px}
 }
 
 @media (min-width:1024px){
