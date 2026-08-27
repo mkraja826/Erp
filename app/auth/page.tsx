@@ -19,11 +19,11 @@ export default function AuthPage() {
     try {
       if (mode === "signin") {
         await signIn(email, password);
-        window.location.href = "/courses/sap-mm-level-1";
+        window.location.href = "/dashboard";
       } else {
         const result = await signUp(email, password, fullName);
         if ((result as { access_token?: string }).access_token) {
-          window.location.href = "/courses/sap-mm-level-1";
+          window.location.href = "/dashboard";
         } else {
           setMessage("Account created. Check your email to confirm your account, then sign in.");
           setMode("signin");
