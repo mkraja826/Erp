@@ -58,7 +58,7 @@ export default function ProcurementFlowPage(){
     </section>
 
     <section className="dashboardLowerGrid">
-      <article className="nextStepCard"><span className="eyebrow">Document chain</span><h2>Your posted history</h2><div className="flowDocumentList">{[...prs,...pos,...grs,...ivs].map(d=><div key={d.document_number}><strong>{d.document_number}</strong><span>{d.document_type} · {d.status}</span></div>)}{!prs.length&&!pos.length&&!grs.length&&!ivs.length&&<p>No linked documents yet. Start with a purchase requisition.</p>}</div></article>
+      <article className="nextStepCard"><span className="eyebrow">Document chain</span><h2>Your posted history</h2><div className="flowDocumentList">{[...prs,...pos,...grs,...ivs].map(d=><Link href={`/documents/${encodeURIComponent(d.document_number)}`} key={d.document_number}><strong>{d.document_number}</strong><span>{d.document_type} · {d.status}</span></Link>)}{!prs.length&&!pos.length&&!grs.length&&!ivs.length&&<p>No linked documents yet. Start with a purchase requisition.</p>}</div></article>
       <article className="workGateCard unlocked"><span className="eyebrow">Process logic</span><h2>{ivs.some(x=>x.status==="posted")?"Procure-to-pay cycle completed":"Build the chain in order"}</h2><p>PR captures the internal need. PO commits to a supplier. GR records what physically arrived and updates inventory. Invoice verification compares the supplier bill with what was ordered and received.</p></article>
     </section>
   </main>;
