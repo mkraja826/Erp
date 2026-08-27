@@ -24,6 +24,8 @@ type VerifyResult = {
   lessonId?: string;
 };
 
+type CoachResult = { reply?: string; hintLevel?: number; source?: string; error?: string };
+
 function parseAnswer(raw: string): unknown {
   const trimmed = raw.trim();
   if (!trimmed) return {};
@@ -40,6 +42,7 @@ export default function ExerciseCard({ exercise }: Props) {
   const [result, setResult] = useState<VerifyResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [hintLevel, setHintLevel] = useState(0);
+  const [coachReply, setCoachReply] = useState("");
 
   const placeholder = useMemo(() => exercise.exercise_type === "transaction"
     ? '{"document_type":"NB","vendor":"...","material":"...","quantity":100,"plant":"...","purchasing_organization":"..."}'
@@ -49,10 +52,7 @@ export default function ExerciseCard({ exercise }: Props) {
     const session = getStoredSession();
     const response = await fetch("/api/verify", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}),
-      },
+      headers: { "Content-Type": "application/json", ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}) },
       body: JSON.stringify(payload),
     });
     return response.json() as Promise<VerifyResult>;
@@ -64,18 +64,25 @@ export default function ExerciseCard({ exercise }: Props) {
     try {
       const data = await callVerify({ exerciseId: exercise.id, answer: parseAnswer(answer) });
       setResult(data);
-      if (data.passed && data.lessonId) {
-        window.dispatchEvent(new CustomEvent("erp-lesson-completed", { detail: { lessonId: data.lessonId } }));
-      }
-    } finally {
-      setLoading(false);
-    }
+      if (data.passed && data.lessonId) window.dispatchEvent(new CustomEvent("erp-lesson-completed", { detail: { lessonId: data.lessonId } }));
+    } finally { setLoading(false); }
   }
 
   async function getHint() {
-    const nextLevel = hintLevel + 1;
+    const session = getStoredSession();
+    if (!session) {
+      setCoachReply("Sign in to use the AI Coach and save your learning support history.");
+      return;
+    }
+    const nextLevel = Math.min(hintLevel + 1, 3);
     setHintLevel(nextLevel);
-    setResult(await callVerify({ exerciseId: exercise.id, answer: parseAnswer(answer), hintLevel: nextLevel }));
+    const response = await fetch("/api/coach", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ mode: "lesson", exerciseId: exercise.id, hintLevel: nextLevel, prompt: answer.trim() ? "I am stuck. Review my current attempt and guide me without solving everything for me." : "I am stuck. Give me the next small hint." }),
+    });
+    const data = await response.json() as CoachResult;
+    setCoachReply(data.reply ?? data.error ?? "Coach is unavailable right now.");
   }
 
   return (
@@ -87,9 +94,10 @@ export default function ExerciseCard({ exercise }: Props) {
         <textarea value={answer} onChange={(event) => setAnswer(event.target.value)} placeholder={placeholder} rows={6} aria-label="Exercise answer" />
         <div className="exerciseActions">
           <button className="primaryButton" type="submit" disabled={loading || !answer.trim()}>{loading ? "Verifying…" : "Verify my work"}</button>
-          <button className="secondaryButton" type="button" onClick={getHint}>Give me a hint</button>
+          <button className="secondaryButton" type="button" onClick={getHint}>Ask AI Coach · Hint {Math.min(hintLevel + 1, 3)}/3</button>
         </div>
       </form>
+      {coachReply && <div className="coachNote"><p><strong>AI Coach:</strong> {coachReply}</p></div>}
       {result && (
         <div className={`verifyResult ${result.passed ? "pass" : "retry"}`}>
           <strong>{result.passed ? "Verified" : "Try again"} · {result.percentage}%</strong>
@@ -97,7 +105,6 @@ export default function ExerciseCard({ exercise }: Props) {
           {result.passed && !result.saved && <p>Sign in to save this verified progress and unlock the next lesson.</p>}
           {result.passed && result.saved && <p>Progress saved. The next lesson is now unlocked.</p>}
           {result.missingFields.length > 0 && <p>Missing fields: {result.missingFields.join(", ")}</p>}
-          {result.hint && <p className="hintText">AI Coach hint: {result.hint}</p>}
         </div>
       )}
     </section>
