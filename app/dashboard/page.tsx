@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { getStoredSession, signOut } from "../../lib/auth-client";
+import { getValidSession, refreshSession, signOut } from "../../lib/auth-client";
 
 type DashboardData = {
   learner: { email: string | null };
@@ -19,10 +19,15 @@ export default function DashboardPage() {
 
   useEffect(() => {
     async function load() {
-      const session = getStoredSession();
+      let session = await getValidSession();
       if (!session) { window.location.href = "/auth"; return; }
       try {
-        const response = await fetch("/api/dashboard", { headers: { Authorization: `Bearer ${session.access_token}` } });
+        let response = await fetch("/api/dashboard", { headers: { Authorization: `Bearer ${session.access_token}` } });
+        if (response.status === 401) {
+          session = await refreshSession(session);
+          if (!session) { window.location.href = "/auth"; return; }
+          response = await fetch("/api/dashboard", { headers: { Authorization: `Bearer ${session.access_token}` } });
+        }
         if (response.status === 401) { signOut(); window.location.href = "/auth"; return; }
         const payload = await response.json();
         if (!response.ok) throw new Error(payload.error ?? "Unable to load dashboard.");
