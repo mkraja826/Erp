@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const protectedRoutes = ['/dashboard','/skills','/work-lab','/work-lab/incidents','/assessment','/simulator/p2p'];
+const protectedRoutes = ['/dashboard','/skills','/work-lab','/work-lab/incidents','/assessment','/procurement-flow'];
 
 test.describe('ERP Edu critical learner journey', () => {
   test('public landing exposes learner entry points', async ({ page }) => {
