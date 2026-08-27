@@ -7,8 +7,8 @@ import { getStoredSession } from "../../lib/auth-client";
 type Task = { id:string; title:string; description:string; task_type:string; difficulty:string };
 type Attempt = { id:string; task_id:string; score:number; result:string; ai_help_count:number; started_at:string; completed_at:string|null };
 type Data = { unlocked:boolean; tasks:Task[]; attempts:Attempt[] };
-
 type Result = { passed:boolean; percentage:number; feedback:string; independenceScore:number };
+type CoachResult = { reply?:string; error?:string };
 
 export default function WorkLabPage() {
   const [data,setData] = useState<Data|null>(null);
@@ -16,6 +16,7 @@ export default function WorkLabPage() {
   const [result,setResult] = useState<Result|null>(null);
   const [aiHelp,setAiHelp] = useState(0);
   const [message,setMessage] = useState("");
+  const [coach,setCoach] = useState("");
 
   useEffect(()=>{ void load(); },[]);
 
@@ -42,6 +43,17 @@ export default function WorkLabPage() {
     setResult(payload as Result); setMessage(""); await load();
   }
 
+  async function askWorkAssistant(){
+    const session=getStoredSession();
+    const task=data?.tasks[0];
+    if(!session||!task)return;
+    const response=await fetch("/api/coach",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${session.access_token}`},body:JSON.stringify({mode:"work",taskId:task.id,hintLevel:1,prompt:"I need help investigating this ticket. Guide me without giving me the final transaction values."})});
+    const payload=await response.json() as CoachResult;
+    if(!response.ok){setCoach(payload.error ?? "Work assistant unavailable.");return;}
+    setAiHelp((n)=>n+1);
+    setCoach(payload.reply ?? "Review the business request one field at a time.");
+  }
+
   const task=data?.tasks[0];
   const taskAttempts=task ? (data?.attempts ?? []).filter((a)=>a.task_id===task.id) : [];
 
@@ -54,7 +66,7 @@ export default function WorkLabPage() {
       <div className="dashboardStats"><article><strong>{taskAttempts.length}</strong><span>Attempts</span></article><article><strong>{taskAttempts[0]?.score ?? 0}%</strong><span>Latest accuracy</span></article><article><strong>{taskAttempts.reduce((s,a)=>s+a.ai_help_count,0)}</strong><span>AI assists</span></article><article><strong>{taskAttempts.some((a)=>a.result==="pass")?"Yes":"No"}</strong><span>Verified</span></article></div>
     </section>}
     {task && <section className="dashboardLowerGrid">
-      <article className="nextStepCard"><span className="eyebrow">Your work</span><h2>Submit transaction state</h2><form onSubmit={submit} className="exerciseForm"><textarea rows={9} value={answer} onChange={(e)=>setAnswer(e.target.value)} /><div className="exerciseActions"><button className="primaryButton">Verify work ticket</button><button type="button" className="secondaryButton" onClick={()=>{setAiHelp((n)=>n+1);setMessage("Work assistant: compare the ticket with your document type, vendor, material, quantity, plant and purchasing organization. I won’t reveal the final values.");}}>Ask work assistant</button></div></form></article>
+      <article className="nextStepCard"><span className="eyebrow">Your work</span><h2>Submit transaction state</h2><form onSubmit={submit} className="exerciseForm"><textarea rows={9} value={answer} onChange={(e)=>setAnswer(e.target.value)} /><div className="exerciseActions"><button className="primaryButton">Verify work ticket</button><button type="button" className="secondaryButton" onClick={askWorkAssistant}>Ask work assistant</button></div></form>{coach && <div className="coachNote"><p><strong>Work assistant:</strong> {coach}</p></div>}</article>
       <article className={`workGateCard ${result?.passed?"unlocked":"locked"}`}><span className="eyebrow">Performance</span><h2>{result?`${result.percentage}% accuracy`:"Awaiting submission"}</h2><p>{result?.feedback ?? "Submit the ticket to create your first verified Work Lab record."}</p>{result && <span className="workGateStatus">Independence score: {result.independenceScore}%</span>}</article>
     </section>}
   </main>;
