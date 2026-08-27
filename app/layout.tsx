@@ -3,6 +3,7 @@ import "./globals.css";
 import "./erp-practice.css";
 import "./erp-shell.css";
 import "./procurement-flow.css";
+import "./microlearning.css";
 
 export const metadata: Metadata = {
   title: "ERP Edu | Learn SAP by Doing",
