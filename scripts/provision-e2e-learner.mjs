@@ -74,6 +74,27 @@ const courses = await restRequest('courses?slug=eq.sap-mm-level-1&select=id&limi
 const courseId = courses?.[0]?.id;
 if (!courseId) throw new Error('SAP MM Level 1 course was not found while provisioning Work Lab learner.');
 
+const modules = await restRequest(`course_modules?course_id=eq.${courseId}&select=id`);
+const moduleIds = (modules ?? []).map((row) => row.id);
+if (!moduleIds.length) throw new Error('SAP MM Level 1 modules were not found while provisioning Work Lab learner.');
+
+const lessons = await restRequest(`lessons?module_id=in.(${moduleIds.join(',')})&select=id`);
+if (!Array.isArray(lessons) || lessons.length === 0) throw new Error('SAP MM Level 1 lessons were not found while provisioning Work Lab learner.');
+
+const completedAt = new Date().toISOString();
+await restRequest('lesson_progress?on_conflict=user_id,lesson_id', {
+  method: 'POST',
+  headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+  body: JSON.stringify(lessons.map((lesson) => ({
+    user_id: completedUserId,
+    lesson_id: lesson.id,
+    status: 'completed',
+    attempts: 1,
+    completed_at: completedAt,
+    updated_at: completedAt,
+  }))),
+});
+
 await restRequest('enrollments?on_conflict=user_id,course_id', {
   method: 'POST',
   headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
@@ -82,7 +103,15 @@ await restRequest('enrollments?on_conflict=user_id,course_id', {
     course_id: courseId,
     status: 'completed',
     progress_percent: 100,
-    completed_at: new Date().toISOString(),
+    completed_at: completedAt,
   }),
 });
-console.log('Work Lab E2E learner refreshed, confirmed, and marked course-complete.');
+
+const verifiedProgress = await restRequest(`lesson_progress?user_id=eq.${completedUserId}&status=eq.completed&lesson_id=in.(${lessons.map((lesson) => lesson.id).join(',')})&select=lesson_id`);
+const verifiedEnrollment = await restRequest(`enrollments?user_id=eq.${completedUserId}&course_id=eq.${courseId}&select=status,progress_percent&limit=1`);
+const enrollment = verifiedEnrollment?.[0];
+if (verifiedProgress?.length !== lessons.length || enrollment?.status !== 'completed' || Number(enrollment?.progress_percent) !== 100) {
+  throw new Error(`Work Lab learner completion seed verification failed: ${JSON.stringify({ completedLessons: verifiedProgress?.length, totalLessons: lessons.length, enrollment })}`);
+}
+
+console.log(`Work Lab E2E learner refreshed, confirmed, and seeded with ${lessons.length}/${lessons.length} completed lessons.`);
