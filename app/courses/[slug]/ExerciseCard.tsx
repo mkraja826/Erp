@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { getStoredSession } from "../../../lib/auth-client";
+import ErpTrainingShell from "../../../components/ErpTrainingShell";
 
 type Props = { exercise: { id: string; title: string; instructions: string; exercise_type: string; max_score: number } };
 type VerifyResult = { passed:boolean; score:number; percentage:number; feedback:string; hint:string|null; missingFields:string[]; saved?:boolean; lessonId?:string };
@@ -48,17 +49,22 @@ export default function ExerciseCard({ exercise }: Props) {
   }
 
   const hasInput=ui?.mode==="form"?ui.fields.some(f=>(values[f.key]??"").trim()):ui?.mode==="ordered-list"?ordered.some(Boolean):single.trim().length>0;
+  const shellStatus = loading ? "checking" : result?.passed ? "success" : result ? "warning" : "ready";
+
+  const fields = <>
+    {!ui&&<p className="muted">Loading practice fields…</p>}
+    {ui?.mode==="form"&&<div className="erpFieldGrid">{ui.fields.map(field=><label key={field.key}><span>{field.label}</span><input type={field.type} value={values[field.key]??""} onChange={e=>setValues(v=>({...v,[field.key]:e.target.value}))} /></label>)}</div>}
+    {ui?.mode==="ordered-list"&&<div className="erpFieldGrid">{ordered.map((value,index)=><label key={index}><span>Step {index+1}</span><input value={value} onChange={e=>setOrdered(items=>items.map((x,i)=>i===index?e.target.value:x))} placeholder="Enter the business step" /></label>)}</div>}
+    {ui?.mode==="single"&&<label className="erpSingle"><span>Answer</span><input value={single} onChange={e=>setSingle(e.target.value)} /></label>}
+  </>;
 
   return <section className="lessonExercise">
     <div className="lessonExerciseHeader"><span className="eyebrow">ERP Practice Workspace</span><span className="scorePill">{exercise.max_score} XP</span></div>
     <h3>{exercise.title}</h3><p>{exercise.instructions}</p>
-    <form onSubmit={verify} className="erpWorkspace">
-      <div className="erpWindowBar"><strong>{exercise.exercise_type==="transaction"?"Transaction Workspace":"Business Task"}</strong><span>Practice client · Safe mode</span></div>
-      {!ui&&<p className="muted">Loading practice fields…</p>}
-      {ui?.mode==="form"&&<div className="erpFieldGrid">{ui.fields.map(field=><label key={field.key}><span>{field.label}</span><input type={field.type} value={values[field.key]??""} onChange={e=>setValues(v=>({...v,[field.key]:e.target.value}))} /></label>)}</div>}
-      {ui?.mode==="ordered-list"&&<div className="erpFieldGrid">{ordered.map((value,index)=><label key={index}><span>Step {index+1}</span><input value={value} onChange={e=>setOrdered(items=>items.map((x,i)=>i===index?e.target.value:x))} placeholder="Enter the business step" /></label>)}</div>}
-      {ui?.mode==="single"&&<label className="erpSingle"><span>Answer</span><input value={single} onChange={e=>setSingle(e.target.value)} /></label>}
-      <div className="erpActionBar"><button className="primaryButton" disabled={loading||!hasInput}>{loading?"Checking document…":"Check & Verify"}</button><button type="button" className="secondaryButton" onClick={getHint}>AI Coach · Hint {Math.min(hintLevel+1,3)}/3</button></div>
+    <form onSubmit={verify}>
+      <ErpTrainingShell title={exercise.title} transactionLabel={exercise.exercise_type === "transaction" ? "Transaction" : "Business Task"} status={shellStatus} actions={<><button className="primaryButton" disabled={loading||!hasInput}>{loading?"Checking document…":"Check & Verify"}</button><button type="button" className="secondaryButton" onClick={getHint}>AI Coach · Hint {Math.min(hintLevel+1,3)}/3</button></>}>
+        {fields}
+      </ErpTrainingShell>
     </form>
     {coachReply&&<div className="coachNote"><p><strong>AI Coach:</strong> {coachReply}</p></div>}
     {result&&<div className={`verifyResult ${result.passed?"pass":"retry"}`}><strong>{result.passed?"Document verified":"Document needs correction"} · {result.percentage}%</strong><p>{result.feedback}</p>{result.missingFields.length>0&&<p>Check fields: {result.missingFields.join(", ")}</p>}{result.passed&&!result.saved&&<p>Sign in to save this verified progress.</p>}{result.passed&&result.saved&&<p>Progress saved. The next lesson is unlocked.</p>}</div>}
