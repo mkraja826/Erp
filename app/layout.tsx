@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./erp-practice.css";
 
 export const metadata: Metadata = {
   title: "ERP Edu | Learn SAP by Doing",
