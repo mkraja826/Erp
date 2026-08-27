@@ -2,6 +2,7 @@
 
 import { ReactNode, useEffect, useMemo, useState } from "react";
 import { authenticatedFetch } from "../lib/auth-client";
+import LearnerGuide from "./LearnerGuide";
 import styles from "./ErpTrainingShell.module.css";
 
 type Props = {
@@ -11,6 +12,9 @@ type Props = {
   status?: "ready" | "checking" | "success" | "warning";
   children: ReactNode;
   actions?: ReactNode;
+  learningGoal?: string;
+  currentTask?: string;
+  nextStep?: string;
 };
 
 type RuntimeData={transactions:{code:string;name:string;area:string}[];documents:{document_number:string;document_type:string;status:string;created_at:string}[]};
@@ -22,7 +26,7 @@ const navItems = [
   {label:"Reports",icon:"◫"},
 ];
 
-export default function ErpTrainingShell({ title, transactionLabel, modeLabel = "Training client", status = "ready", children, actions }: Props) {
+export default function ErpTrainingShell({ title, transactionLabel, modeLabel = "Training client", status = "ready", children, actions, learningGoal, currentTask, nextStep }: Props) {
   const [activeTab, setActiveTab] = useState("Document");
   const [activeNav, setActiveNav] = useState("Procurement");
   const [search, setSearch] = useState("");
@@ -90,7 +94,15 @@ export default function ErpTrainingShell({ title, transactionLabel, modeLabel = 
           {["Document", "Items", "Details", "History"].map(tab=><button key={tab} type="button" role="tab" aria-selected={activeTab===tab} className={activeTab===tab?styles.active:""} onClick={()=>setActiveTab(tab)}>{tab}</button>)}
         </div>
 
-        <div className={styles.workspace}><div className={styles.canvas}>{children}</div></div>
+        <div className={styles.workspace}><div className={styles.canvas}>
+          <LearnerGuide
+            compact
+            learning={learningGoal ?? `How ${transactionLabel} works in a business process`}
+            now={currentTask ?? title}
+            next={nextStep ?? "Check the result, then continue to the next business step"}
+          />
+          {children}
+        </div></div>
         {actions&&<div className={styles.actions}>{actions}</div>}
         <div className={styles.status} data-status={status} role="status" aria-live="polite"><span className={styles.dot}/><span>{message}</span><div className={styles.statusRight}><span>{statusLabel}</span><span>MM Workspace</span></div></div>
       </div>
