@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { ArrowRight, BookOpen, Bot, BriefcaseBusiness, CheckCircle2, Gauge, GraduationCap, PlayCircle, Sparkles, Trophy } from "lucide-react";
 
 const stages = [
@@ -30,8 +31,8 @@ export default function HomePage() {
           <h1>Learn SAP. Practice it. <span>Prove you can do the work.</span></h1>
           <p>ERP Edu turns SAP learning into a guided, hands-on journey. AI helps when you are stuck, practice is verified automatically, and course graduates enter a realistic work simulation.</p>
           <div className="heroActions">
-            <button className="primaryButton">Start SAP MM <ArrowRight size={18} /></button>
-            <button className="secondaryButton">Explore learning path</button>
+            <Link className="primaryButton" href="/courses/sap-mm-level-1">Start SAP MM <ArrowRight size={18} /></Link>
+            <a className="secondaryButton" href="#learn">Explore learning path</a>
           </div>
           <div className="trustRow">
             <span><CheckCircle2 size={16}/> Beginner friendly</span>
@@ -45,7 +46,7 @@ export default function HomePage() {
           <div className="message aiMessage">You are about to create your first purchase order. Want a quick explanation of <strong>why</strong> businesses use POs first?</div>
           <div className="message learnerMessage">Yes, explain it simply.</div>
           <div className="message aiMessage">Think of a PO as the company's official shopping request. It records <em>what</em> we buy, <em>from whom</em>, <em>how much</em>, and <em>at what price</em>.</div>
-          <button className="hintButton">Continue to practice <ArrowRight size={16}/></button>
+          <Link className="hintButton" href="/courses/sap-mm-level-1">Continue to practice <ArrowRight size={16}/></Link>
         </aside>
       </section>
 
@@ -71,7 +72,7 @@ export default function HomePage() {
             <div><span>Plant</span><strong className="pass">✓ Correct</strong></div>
           </div>
           <div className="coachNote"><Bot size={18}/><p>Your quantity is close. Re-read the request: the warehouse needs <strong>500 units</strong>. Try changing only that field.</p></div>
-          <button className="primaryButton full">Retry verification</button>
+          <Link className="primaryButton full" href="/courses/sap-mm-level-1">Open live practice</Link>
         </div>
       </section>
 
