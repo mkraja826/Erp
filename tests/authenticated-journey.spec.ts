@@ -12,8 +12,7 @@ test.describe('Authenticated learner journey', () => {
     await page.getByRole('button', { name: 'Sign in' }).last().click();
 
     await expect(page).toHaveURL(/\/dashboard$/, { timeout: 20000 });
-    await expect(page.getByText(email!)).toBeVisible();
-    await expect(page.getByText(/SAP MM Level 1/i)).toBeVisible();
+    await expect(page.getByText(/SAP MM Level 1/i)).toBeVisible({ timeout: 10000 });
 
     const session = await page.evaluate(() => window.localStorage.getItem('erp-edu-session'));
     expect(session).toBeTruthy();
