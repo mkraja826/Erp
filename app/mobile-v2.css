@@ -1,0 +1,171 @@
+:root{
+  --ui-bg:#f7f8fb;
+  --ui-surface:#fff;
+  --ui-text:#172033;
+  --ui-muted:#667085;
+  --ui-border:#e3e7ef;
+  --ui-accent:#6c52ff;
+  --ui-accent-soft:#eeeaff;
+  --ui-radius-sm:12px;
+  --ui-radius-md:16px;
+  --ui-radius-lg:22px;
+  --ui-shadow:0 10px 30px rgba(33,42,66,.06);
+  --ui-gutter:16px;
+  --ui-touch:48px;
+}
+
+html{-webkit-text-size-adjust:100%;text-rendering:optimizeLegibility}
+body{min-width:320px;overflow-x:hidden;-webkit-font-smoothing:antialiased;background:var(--ui-bg)}
+button,input,textarea,select{font:inherit}
+button,a,input,textarea,select{-webkit-tap-highlight-color:transparent}
+button,.primaryButton,.secondaryButton,.ghostButton,.hintButton,.lightButton{min-height:var(--ui-touch)}
+.primaryButton,.secondaryButton,.ghostButton,.hintButton,.lightButton{border-radius:14px}
+.primaryButton{box-shadow:0 8px 20px rgba(108,82,255,.18)}
+.primaryButton:active,.secondaryButton:active,.ghostButton:active,.hintButton:active,.lightButton:active{transform:translateY(1px)}
+input,textarea,select{font-size:16px!important}
+:focus-visible{outline:3px solid rgba(108,82,255,.25);outline-offset:2px}
+
+.shell,.coursePage,.dashboardPage{width:calc(100% - (var(--ui-gutter) * 2));max-width:1180px}
+.topbar,.courseTopbar,.dashboardTopbar{height:auto;min-height:64px;padding:10px 0;gap:10px}
+.brand,.brandLink{font-size:17px}
+.brandMark{width:36px;height:36px;border-radius:11px;flex:0 0 auto}
+.nav{display:none}
+
+.hero,.section,.workSection{padding-top:44px;padding-bottom:48px}
+.hero,.splitSection,.workGrid,.sectionHeading,.courseHero,.dashboardHero,.dashboardGrid,.dashboardLowerGrid{grid-template-columns:1fr;gap:22px}
+.hero h1,.section h2,.workSection h2,.courseHero h1,.dashboardHero h1{font-size:clamp(36px,11vw,52px);line-height:1.02;letter-spacing:-.04em}
+.heroCopy>p,.sectionHeading>p,.workSection p,.courseHero p,.dashboardHero p{font-size:16px;line-height:1.65}
+.heroActions{display:grid;grid-template-columns:1fr;gap:10px;margin-top:24px}
+.heroActions>*{width:100%}
+.trustRow{gap:10px 14px;margin-top:20px}
+.trustRow span{font-size:13px}
+.coachCard,.verificationCard,.stageCard,.dashboardCourseCard,.dashboardStats article,.nextStepCard,.workGateCard,.authCard{border-radius:18px;box-shadow:var(--ui-shadow)}
+.coachCard,.verificationCard,.stageCard{padding:18px}
+.message{font-size:14px}
+.aiMessage{margin-right:16px}.learnerMessage{margin-left:24px}
+
+.sectionHeading{align-items:start}
+.stageGrid{grid-template-columns:1fr;gap:12px;margin-top:24px}
+.stageCard h3{margin-top:18px}
+.moduleRow{display:grid;grid-template-columns:1fr;gap:10px;padding:16px 0}
+.progressArea{min-width:0;text-align:left;width:100%}
+.workStats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:22px}
+.ticketCard{padding:20px;border-radius:18px}
+.ticketCard h3{font-size:24px}
+.certificateSection{grid-template-columns:52px 1fr;gap:14px}
+.certificateIcon{width:52px;height:52px;border-radius:15px}
+.scoreBadge{grid-column:1/-1;width:100%;justify-content:center}
+.footer{flex-direction:column;align-items:flex-start;gap:12px;padding:24px 0 34px}
+
+.coursePage,.dashboardPage{padding-bottom:48px}
+.courseTopbar,.dashboardTopbar{flex-wrap:wrap}
+.courseTopActions,.dashboardUser{gap:8px;min-width:0}
+.courseBadge{font-size:10px;padding:7px 9px}
+.courseHero{padding:36px 0 24px;align-items:start}
+.courseHero p{margin-bottom:0}
+.courseStats{width:100%;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-radius:16px}
+.courseStats div{min-width:0;padding:14px 8px}
+.courseStats strong{font-size:21px}
+.learningRule{margin-bottom:30px;padding:16px;border-radius:14px}
+.courseContent{gap:34px}
+.moduleHeading{grid-template-columns:44px 1fr;gap:12px}
+.moduleNumber{width:42px;height:42px;border-radius:12px}
+.moduleHeading h2{font-size:23px}
+.lessonCard,.lessonLocked{margin-left:0;padding:18px;border-radius:18px}
+.lessonCard>h3{font-size:21px}
+.lessonMeta{flex-wrap:wrap}
+.lessonExerciseHeader{align-items:flex-start;gap:10px}
+.exerciseForm{gap:10px}
+.exerciseForm textarea{min-height:112px;padding:13px;border-radius:12px}
+.exerciseActions{display:grid;grid-template-columns:1fr;gap:9px}
+.exerciseActions>*{width:100%}
+.workLabTeaser{margin-top:42px;padding:22px;border-radius:18px}
+.workLabTeaser h2{font-size:28px}
+
+.authPage{align-items:start;padding:20px var(--ui-gutter);padding-top:max(28px,env(safe-area-inset-top))}
+.authCard{padding:22px 18px;width:100%;max-width:520px}
+.authCard h1{font-size:32px;margin-top:12px}
+.authTabs{margin:20px 0}
+.authTabs button{min-height:44px}
+.authForm{gap:14px}
+.authForm input{min-height:48px;padding:12px 13px}
+
+.dashboardHero{padding:34px 0 24px;align-items:start}
+.dashboardProgress{width:136px;height:136px;border-width:11px;justify-self:start}
+.dashboardProgress strong{font-size:34px}
+.dashboardCourseCard,.nextStepCard,.workGateCard{padding:20px}
+.dashboardCourseCard h2{font-size:26px}
+.dashboardStats{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.dashboardStats article{padding:16px}
+.dashboardStats strong{font-size:25px}
+.dashboardLowerGrid{margin-top:14px}
+.nextStepCard h2,.workGateCard h2{font-size:24px}
+
+.erpClientShell{grid-template-columns:1fr!important;margin-top:14px;border-radius:16px;box-shadow:var(--ui-shadow)}
+.erpSidebar{min-height:0!important;padding:8px!important}
+.erpLogo{display:none!important}
+.erpSidebar nav{flex-direction:row!important;overflow-x:auto;overscroll-behavior-inline:contain;scrollbar-width:none;gap:4px!important}
+.erpSidebar nav::-webkit-scrollbar,.erpTabs::-webkit-scrollbar{display:none}
+.erpSidebar button{min-height:40px;white-space:nowrap;padding:9px 12px!important}
+.erpClientTopbar{flex-direction:column;align-items:stretch!important;gap:10px!important;padding:12px!important}
+.erpTransactionSearch{width:100%!important;min-width:0!important;min-height:44px}
+.erpDocumentHeader{padding:16px 14px 10px!important;align-items:flex-start;flex-direction:column}
+.erpDocumentHeader h4{font-size:19px!important}
+.erpTabs{padding:0 10px!important;overflow-x:auto;overscroll-behavior-inline:contain}
+.erpTabs button{min-height:44px;white-space:nowrap;padding:10px!important}
+.erpDocumentBody{padding:14px!important}
+.erpFieldGrid,.docKeyGrid{grid-template-columns:1fr!important;gap:12px!important}
+.erpFieldGrid input,.erpSingle input{min-height:46px;border-radius:10px!important;padding:11px 12px!important}
+.erpClientActions{display:grid!important;grid-template-columns:1fr;gap:8px!important;padding:12px!important}
+.erpClientActions>*{width:100%;min-height:46px}
+.erpStatusBar{min-height:42px;padding:10px 12px!important;line-height:1.4}
+.flowDocumentList a{align-items:flex-start!important;flex-direction:column!important;padding:14px 0!important}
+
+@media (min-width:640px){
+  :root{--ui-gutter:24px}
+  .heroActions{display:flex}.heroActions>*{width:auto}
+  .stageGrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .exerciseActions{display:flex}.exerciseActions>*{width:auto}
+  .dashboardProgress{width:156px;height:156px}
+  .erpFieldGrid,.docKeyGrid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .erpClientActions{display:flex!important}.erpClientActions>*{width:auto}
+}
+
+@media (min-width:900px){
+  :root{--ui-gutter:20px}
+  .nav{display:flex}
+  .topbar,.courseTopbar,.dashboardTopbar{min-height:76px;padding:0}
+  .hero{grid-template-columns:1.15fr .85fr;gap:64px;padding:78px 0 88px}
+  .section{padding:86px 0}.workSection{padding:92px 0}
+  .splitSection{grid-template-columns:1.05fr .95fr;gap:56px}
+  .workGrid{grid-template-columns:1.05fr .95fr;gap:64px}
+  .sectionHeading{grid-template-columns:1fr 1fr;gap:40px;align-items:end}
+  .stageGrid{grid-template-columns:repeat(4,minmax(0,1fr));gap:18px}
+  .moduleRow{display:flex;gap:20px}.progressArea{min-width:220px;text-align:right;width:auto}
+  .courseHero{grid-template-columns:1fr auto;gap:48px;align-items:end;padding:64px 0 34px}
+  .courseStats{width:auto;display:flex}
+  .lessonCard,.lessonLocked{margin-left:76px;padding:26px}
+  .dashboardHero{grid-template-columns:1fr auto;gap:36px;align-items:end;padding:56px 0 30px}
+  .dashboardProgress{width:180px;height:180px;justify-self:auto}
+  .dashboardGrid{grid-template-columns:1.2fr .8fr;gap:22px}
+  .dashboardLowerGrid{grid-template-columns:1fr 1fr;gap:22px;margin-top:22px}
+  .dashboardCourseCard,.nextStepCard,.workGateCard{padding:28px}
+  .certificateSection{grid-template-columns:auto 1fr auto;gap:24px}.scoreBadge{grid-column:auto;width:auto}
+  .footer{flex-direction:row;align-items:center;gap:20px}
+}
+
+@media (min-width:1024px){
+  .erpClientShell{grid-template-columns:132px 1fr!important}
+  .erpSidebar{min-height:430px!important;padding:16px 10px!important}
+  .erpLogo{display:grid!important}
+  .erpSidebar nav{flex-direction:column!important;overflow:visible}
+  .erpSidebar button{white-space:normal;padding:10px!important}
+  .erpClientTopbar{flex-direction:row;align-items:center!important;padding:12px 16px!important}
+  .erpTransactionSearch{width:auto!important;min-width:240px!important}
+  .erpDocumentHeader{padding:18px 20px 12px!important;flex-direction:row}
+  .erpTabs{padding:0 20px!important;overflow:visible}
+  .erpDocumentBody{padding:20px!important}
+  .erpClientActions{padding:12px 16px!important}
+}
+
+@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
