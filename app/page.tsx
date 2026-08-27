@@ -22,7 +22,7 @@ export default function HomePage() {
         <nav className="nav" aria-label="Primary navigation">
           <a href="#learn">Learn</a><a href="#practice">Practice</a><a href="#work">Work Lab</a>
         </nav>
-        <button className="ghostButton">Sign in</button>
+        <Link className="ghostButton" href="/auth">Sign in</Link>
       </header>
 
       <section className="hero shell">
