@@ -4,7 +4,12 @@ const email = process.env.E2E_LEARNER_EMAIL;
 const password = process.env.E2E_LEARNER_PASSWORD;
 
 if (!url || !serviceRoleKey || !email || !password) {
-  console.log('E2E learner provisioning skipped: required CI secrets are not configured.');
+  const message = 'Required authenticated E2E secrets are not configured: SUPABASE_SERVICE_ROLE_KEY, E2E_LEARNER_EMAIL, and E2E_LEARNER_PASSWORD are required.';
+  if (process.env.CI) {
+    console.error(message);
+    process.exit(1);
+  }
+  console.log(`${message} Skipping local provisioning.`);
   process.exit(0);
 }
 
