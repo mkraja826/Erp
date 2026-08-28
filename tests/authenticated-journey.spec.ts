@@ -6,11 +6,14 @@ async function waitForSavedProgress(page: Page) {
   await expect(page.getByText(/Checking your saved progress/i)).toHaveCount(0, { timeout: 10000 });
 }
 
-async function completeChoice(page: Page, answer: string) {
-  const radio = page.getByRole('radio', { name: answer }).first();
+async function completeChoice(page: Page, question: string, answer: string) {
+  const exercise = page.locator('.lessonExercise').filter({ hasText: question }).first();
+  await expect(exercise).toBeVisible({ timeout: 10000 });
+  const radio = exercise.getByRole('radio', { name: answer });
   await expect(radio).toBeVisible({ timeout: 10000 });
   await radio.check();
-  await radio.locator('xpath=ancestor::form').getByRole('button', { name: 'Check answer' }).click();
+  await expect(radio).toBeChecked();
+  await exercise.getByRole('button', { name: 'Check answer' }).click();
   await waitForSavedProgress(page);
 }
 
@@ -41,15 +44,17 @@ test.describe('Authenticated learner journey', () => {
     await expect(page).toHaveURL(/\/courses\/sap-foundations/);
     await expect(page.getByText(/What is ERP\?/i).first()).toBeVisible();
 
-    await completeChoice(page, 'To connect departments and business information');
-    await completeChoice(page, 'Enterprise software used to run business processes');
-    await completeChoice(page, 'MM');
-    await completeChoice(page, 'A business need is identified');
+    await completeChoice(page, 'Why does a company use an ERP system?', 'To connect departments and business information');
+    await completeChoice(page, 'SAP is best described as which of these?', 'Enterprise software used to run business processes');
+    await completeChoice(page, 'Which SAP module focuses on materials and purchasing?', 'MM');
+    await completeChoice(page, 'In a simple purchasing process, what happens first?', 'A business need is identified');
 
-    const shortAnswer = page.getByLabel('Type a short answer').first();
+    const exercise = page.locator('.lessonExercise').filter({ hasText: 'A supplier record is an example of ____ data.' }).first();
+    await expect(exercise).toBeVisible({ timeout: 10000 });
+    const shortAnswer = exercise.getByLabel('Type a short answer');
     await expect(shortAnswer).toBeVisible({ timeout: 10000 });
     await shortAnswer.fill('master');
-    await shortAnswer.locator('xpath=ancestor::form').getByRole('button', { name: 'Check answer' }).click();
+    await exercise.getByRole('button', { name: 'Check answer' }).click();
     await waitForSavedProgress(page);
     await expect(page.getByText(/Lesson locked/i)).toHaveCount(0);
 
