@@ -1,15 +1,24 @@
 import { test, expect, Page } from '@playwright/test';
 
+async function waitForSavedProgress(page: Page) {
+  await expect(page.getByText(/Lesson complete\. Your progress is saved and the next lesson is unlocked\./i).last()).toBeVisible({ timeout: 15000 });
+  await page.reload();
+  await expect(page.getByText(/Checking your saved progress/i)).toHaveCount(0, { timeout: 10000 });
+}
+
 async function completeChoice(page: Page, answer: string) {
   const radio = page.getByRole('radio', { name: answer }).first();
   await expect(radio).toBeVisible({ timeout: 10000 });
   await radio.check();
   await radio.locator('xpath=ancestor::form').getByRole('button', { name: 'Check answer' }).click();
   await expect(page.getByText(/Correct — well done!/i).last()).toBeVisible({ timeout: 15000 });
+  await waitForSavedProgress(page);
 }
 
 test.describe('Authenticated learner journey', () => {
   test('complete SAP Foundations, unlock SAP MM, and persist the transition', async ({ page }) => {
+    test.setTimeout(90000);
+
     const email = process.env.E2E_LEARNER_EMAIL;
     const password = process.env.E2E_LEARNER_PASSWORD;
     test.skip(!email || !password, 'Requires a pre-confirmed Erpedu CI learner account.');
@@ -43,9 +52,7 @@ test.describe('Authenticated learner journey', () => {
     await shortAnswer.fill('master');
     await shortAnswer.locator('xpath=ancestor::form').getByRole('button', { name: 'Check answer' }).click();
     await expect(page.getByText(/Correct — well done!/i).last()).toBeVisible({ timeout: 15000 });
-
-    await page.reload();
-    await expect(page.getByText(/Checking your saved progress/i)).toHaveCount(0, { timeout: 10000 });
+    await waitForSavedProgress(page);
     await expect(page.getByText(/Lesson locked/i)).toHaveCount(0);
 
     await page.goto('/dashboard');
