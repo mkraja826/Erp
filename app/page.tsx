@@ -9,9 +9,9 @@ const stages = [
 ];
 
 const modules = [
-  { name: "SAP MM", subtitle: "Materials Management", progress: 18, status: "Start here" },
+  { name: "SAP Foundations", subtitle: "ERP & SAP basics", progress: 0, status: "Start here" },
+  { name: "SAP MM", subtitle: "Materials Management", progress: 0, status: "After Foundations" },
   { name: "SAP FICO", subtitle: "Finance & Controlling", progress: 0, status: "Coming next" },
-  { name: "SAP SD", subtitle: "Sales & Distribution", progress: 0, status: "Planned" },
 ];
 
 export default function HomePage() {
@@ -29,9 +29,9 @@ export default function HomePage() {
         <div className="heroCopy">
           <div className="eyebrow"><Sparkles size={16} /> SAP learning built for real people</div>
           <h1>Learn SAP. Practice it. <span>Prove you can do the work.</span></h1>
-          <p>ERP Edu turns SAP learning into a guided, hands-on journey. AI helps when you are stuck, practice is verified automatically, and course graduates enter a realistic work simulation.</p>
+          <p>ERP Edu starts with SAP Foundations, then takes you into SAP MM through a guided, hands-on journey. AI helps when you are stuck, practice is verified automatically, and course graduates enter a realistic work simulation.</p>
           <div className="heroActions">
-            <Link className="primaryButton" href="/courses/sap-mm-level-1">Start SAP MM <ArrowRight size={18} /></Link>
+            <Link className="primaryButton" href="/courses/sap-foundations">Start SAP Foundations <ArrowRight size={18} /></Link>
             <a className="secondaryButton" href="#learn">Explore learning path</a>
           </div>
           <div className="trustRow">
@@ -43,10 +43,10 @@ export default function HomePage() {
 
         <aside className="coachCard" aria-label="AI coach preview">
           <div className="coachHeader"><div className="coachIcon"><Bot size={22}/></div><div><strong>AI Learning Coach</strong><small>Always available</small></div><span className="onlineDot" /></div>
-          <div className="message aiMessage">You are about to create your first purchase order. Want a quick explanation of <strong>why</strong> businesses use POs first?</div>
-          <div className="message learnerMessage">Yes, explain it simply.</div>
-          <div className="message aiMessage">Think of a PO as the company's official shopping request. It records <em>what</em> we buy, <em>from whom</em>, <em>how much</em>, and <em>at what price</em>.</div>
-          <Link className="hintButton" href="/courses/sap-mm-level-1">Continue to practice <ArrowRight size={16}/></Link>
+          <div className="message aiMessage">New to SAP? Start with the basics: what ERP is, what SAP does, and how business processes connect.</div>
+          <div className="message learnerMessage">Yes, start from the beginning.</div>
+          <div className="message aiMessage">Perfect. SAP Foundations comes first. After that, SAP MM teaches how companies request, buy, receive, and verify materials.</div>
+          <Link className="hintButton" href="/courses/sap-foundations">Start Foundations <ArrowRight size={16}/></Link>
         </aside>
       </section>
 
@@ -58,13 +58,13 @@ export default function HomePage() {
       <section id="practice" className="section shell splitSection">
         <div>
           <span className="kicker">FIRST LEARNING TRACK</span>
-          <h2>SAP MM from beginner to workplace-ready.</h2>
-          <p className="muted">We start with one complete vertical path before expanding to every SAP module.</p>
+          <h2>Start with SAP Foundations. Then learn SAP MM.</h2>
+          <p className="muted">Complete the basics first, then move into the Materials Management path and realistic procurement practice.</p>
           <div className="moduleList">{modules.map((module)=><div className="moduleRow" key={module.name}><div><strong>{module.name}</strong><span>{module.subtitle}</span></div><div className="progressArea"><div className="progressTrack"><div className="progressFill" style={{width:`${module.progress}%`}} /></div><small>{module.status}</small></div></div>)}</div>
         </div>
         <div className="verificationCard">
           <div className="cardTitle"><Gauge size={20}/><strong>Practice Verifier</strong></div>
-          <p className="muted">Current task: Create a purchase order for the Hyderabad plant.</p>
+          <p className="muted">Later in SAP MM: Create a purchase order for the Hyderabad plant.</p>
           <div className="checkList">
             <div><span>Vendor</span><strong className="pass">✓ Correct</strong></div>
             <div><span>Material</span><strong className="pass">✓ Correct</strong></div>
@@ -72,7 +72,7 @@ export default function HomePage() {
             <div><span>Plant</span><strong className="pass">✓ Correct</strong></div>
           </div>
           <div className="coachNote"><Bot size={18}/><p>Your quantity is close. Re-read the request: the warehouse needs <strong>500 units</strong>. Try changing only that field.</p></div>
-          <Link className="primaryButton full" href="/courses/sap-mm-level-1">Open live practice</Link>
+          <Link className="primaryButton full" href="/courses/sap-foundations">Begin the learning path</Link>
         </div>
       </section>
 
