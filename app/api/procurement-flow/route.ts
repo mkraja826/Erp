@@ -43,9 +43,9 @@ export async function POST(request:Request){
     const alreadyReceived=existing.reduce((sum,row)=>sum+Number(row.items?.[0]?.received_quantity??0),0);if(alreadyReceived+receivedQuantity>orderedQuantity)return NextResponse.json({error:"This receipt would exceed the remaining open PO quantity."},{status:400});
     const number=docNumber("GR"),plant=String(po.header.plant??""),material=String(item.material??"");
     await supabaseRest("erp_documents",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify({user_id:user.id,document_type:"GR",document_number:number,status:"posted",header:{source_po:po.document_number,plant,storage_location:storageLocation},items:[{material,received_quantity:receivedQuantity}]})},token);
-    const balances=await supabaseRest<BalanceRow[]>(`erp_inventory_balances?user_id=eq.${user.id}&material_code=eq.${encodeURIComponent(material)}&plant_code=eq.${encodeURIComponent(plant)}&storage_location=eq.${encodeURIComponent(storageLocation)}&select=quantity&limit=1`,{},token);
+    const balances=await supabaseRest<BalanceRow[]>(`erp_inventory_balances?user_id=eq.${user.id}&material_code=eq.${encodeURIComponent(material)}&plant_code=eq.${encodeURIComponent(plant)}&storage_location_code=eq.${encodeURIComponent(storageLocation)}&select=quantity&limit=1`,{},token);
     const newBalance=Number(balances[0]?.quantity??0)+receivedQuantity;
-    await supabaseRest("erp_inventory_balances?on_conflict=user_id,material_code,plant_code,storage_location",{method:"POST",headers:{Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify({user_id:user.id,material_code:material,plant_code:plant,storage_location:storageLocation,quantity:newBalance})},token);
+    await supabaseRest("erp_inventory_balances?on_conflict=user_id,material_code,plant_code,storage_location_code",{method:"POST",headers:{Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify({user_id:user.id,material_code:material,plant_code:plant,storage_location_code:storageLocation,quantity:newBalance,updated_at:new Date().toISOString()})},token);
     return NextResponse.json({posted:true,documentNumber:number,sourceDocument:po.document_number,openQuantity:orderedQuantity-alreadyReceived-receivedQuantity,inventoryBalance:newBalance,next:"post_invoice"});
   }
 
