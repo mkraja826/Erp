@@ -40,7 +40,7 @@ test.describe('Mobile layout regression', () => {
     await page.getByRole('link', { name: /Start course|Continue learning/i }).click();
     await expect(page).toHaveURL(/\/courses\/sap-mm-level-1/);
     await expect(page.getByText(/One small step at a time/i)).toBeVisible();
-    await expect(page.getByRole('button', { name: /Check & Verify/i }).first()).toBeVisible();
+    await expect(page.getByRole('button', { name: /Check answer/i }).first()).toBeVisible();
     await expectNoHorizontalOverflow(page);
   });
 });
