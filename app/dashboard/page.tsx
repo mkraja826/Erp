@@ -4,11 +4,19 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getValidSession, refreshSession, signOut } from "../../lib/auth-client";
 
+type CourseCardData = {
+  course: { title: string; slug: string; module_code: string };
+  stats: { progressPercent: number; completedLessons: number; totalLessons: number };
+  nextLesson: { id: string; title: string } | null;
+  complete: boolean;
+  unlocked?: boolean;
+};
+
 type DashboardData = {
   learner: { email: string | null };
-  course: { title: string; slug: string; module_code: string };
-  stats: { progressPercent: number; completedLessons: number; totalLessons: number; xp: number; attempts: number; aiHelpUsage: number };
-  nextLesson: { id: string; title: string } | null;
+  foundation: CourseCardData;
+  mm: CourseCardData;
+  totals: { xp: number; attempts: number; aiHelpUsage: number };
   workLabUnlocked: boolean;
 };
 
@@ -41,10 +49,38 @@ export default function DashboardPage() {
   if (loading) return <main className="dashboardPage"><p>Loading your learning progress…</p></main>;
   if (error || !data) return <main className="dashboardPage"><p>{error || "Dashboard unavailable."}</p></main>;
 
+  const current = data.foundation.complete ? data.mm : data.foundation;
+  const totalCompleted = data.foundation.stats.completedLessons + data.mm.stats.completedLessons;
+
   return <main className="dashboardPage">
     <header className="dashboardTopbar"><Link href="/" className="brandLink">ERP Edu</Link><div className="dashboardUser"><span>{data.learner.email}</span><button className="ghostButton" onClick={() => { signOut(); window.location.href = "/"; }}>Sign out</button></div></header>
-    <section className="dashboardHero"><div><span className="eyebrow">Learner dashboard</span><h1>Keep moving. You’re building real SAP skill.</h1><p>Your progress is based on verified practice, not just lessons viewed.</p></div><div className="dashboardProgress"><strong>{data.stats.progressPercent}%</strong><span>Level 1 complete</span></div></section>
-    <section className="dashboardGrid"><article className="dashboardCourseCard"><span className="courseBadge">{data.course.module_code}</span><h2>{data.course.title}</h2><div className="progressTrack"><div className="progressFill" style={{ width: `${data.stats.progressPercent}%` }} /></div><p>{data.stats.completedLessons} of {data.stats.totalLessons} lessons verified</p><Link className="primaryButton" href={`/courses/${data.course.slug}`}>{data.stats.progressPercent > 0 ? "Continue learning" : "Start course"}</Link></article><div className="dashboardStats"><article><strong>{data.stats.xp}</strong><span>Verified XP</span></article><article><strong>{data.stats.attempts}</strong><span>Practice attempts</span></article><article><strong>{data.stats.aiHelpUsage}</strong><span>AI help uses</span></article><article><strong>{data.stats.completedLessons}</strong><span>Lessons mastered</span></article></div></section>
-    <section className="dashboardLowerGrid"><article className="nextStepCard"><span className="eyebrow">Progression</span><h2>{data.nextLesson?.title ?? "Level 1 completed — move into independent practice"}</h2><p>{data.nextLesson ? "Continue from your first unverified lesson. Your saved progress stays with your account." : "Level 2 reduces guidance and prepares you for the timed job-readiness gate."}</p><div className="exerciseActions"><Link className="secondaryButton" href={`/courses/${data.course.slug}`}>Level 1 path</Link><Link className="secondaryButton" href="/courses/sap-mm-level-2">SAP MM Level 2</Link><Link className="secondaryButton" href="/procurement-flow">Procure-to-Pay simulator</Link><Link className="secondaryButton" href="/skills">Verified skills</Link>{data.workLabUnlocked&&<Link className="primaryButton" href="/job-readiness">Job-readiness assessment</Link>}</div></article><article className={`workGateCard ${data.workLabUnlocked ? "unlocked" : "locked"}`}><span className="eyebrow">Work Lab</span><h2>{data.workLabUnlocked ? "Work environment unlocked" : "Locked until course completion"}</h2><p>{data.workLabUnlocked ? "You can now perform realistic junior SAP MM tickets, investigate incidents, and attempt the independent readiness gate." : `Complete the remaining ${data.stats.totalLessons - data.stats.completedLessons} verified lesson(s) to unlock the simulated workplace.`}</p>{data.workLabUnlocked ? <Link className="primaryButton" href="/work-lab">Enter Work Lab</Link> : <span className="workGateStatus">{data.stats.progressPercent}% complete</span>}</article></section>
+
+    <section className="dashboardHero"><div><span className="eyebrow">Learner dashboard</span><h1>Start with SAP Foundations. Then learn SAP MM.</h1><p>Build the basics first, then move into Materials Management and realistic ERP work.</p></div><div className="dashboardProgress"><strong>{current.stats.progressPercent}%</strong><span>{current.course.title}</span></div></section>
+
+    <section className="dashboardGrid">
+      <div style={{ display: "grid", gap: "1rem" }}>
+        <article className="dashboardCourseCard">
+          <span className="courseBadge">1 · START HERE</span>
+          <h2>{data.foundation.course.title}</h2>
+          <p>Learn ERP, SAP, modules, business processes, and SAP data basics before starting SAP MM.</p>
+          <div className="progressTrack"><div className="progressFill" style={{ width: `${data.foundation.stats.progressPercent}%` }} /></div>
+          <p>{data.foundation.stats.completedLessons} of {data.foundation.stats.totalLessons} lessons verified</p>
+          <Link className="primaryButton" href={`/courses/${data.foundation.course.slug}`}>{data.foundation.stats.progressPercent > 0 ? "Continue SAP Foundations" : "Start SAP Foundations"}</Link>
+        </article>
+
+        <article className={`dashboardCourseCard ${data.mm.unlocked ? "" : "locked"}`}>
+          <span className="courseBadge">2 · SAP MM</span>
+          <h2>{data.mm.course.title}</h2>
+          <p>{data.mm.unlocked ? "Foundations complete. Continue into SAP Materials Management." : "Complete SAP Foundations first to unlock this course."}</p>
+          <div className="progressTrack"><div className="progressFill" style={{ width: `${data.mm.stats.progressPercent}%` }} /></div>
+          <p>{data.mm.stats.completedLessons} of {data.mm.stats.totalLessons} lessons verified</p>
+          {data.mm.unlocked ? <Link className="primaryButton" href={`/courses/${data.mm.course.slug}`}>{data.mm.stats.progressPercent > 0 ? "Continue SAP MM" : "Start SAP MM Level 1"}</Link> : <span className="workGateStatus">Locked until SAP Foundations is complete</span>}
+        </article>
+      </div>
+
+      <div className="dashboardStats"><article><strong>{data.totals.xp}</strong><span>Verified XP</span></article><article><strong>{data.totals.attempts}</strong><span>Practice attempts</span></article><article><strong>{data.totals.aiHelpUsage}</strong><span>AI help uses</span></article><article><strong>{totalCompleted}</strong><span>Lessons mastered</span></article></div>
+    </section>
+
+    <section className="dashboardLowerGrid"><article className="nextStepCard"><span className="eyebrow">Next step</span><h2>{current.nextLesson?.title ?? (data.foundation.complete ? "SAP MM Level 1 completed" : "SAP Foundations completed")}</h2><p>{current.nextLesson ? `Continue in ${current.course.title}. Your saved progress stays with your account.` : data.foundation.complete ? "Move into independent ERP practice." : "SAP MM Level 1 is now unlocked."}</p><div className="exerciseActions"><Link className="secondaryButton" href="/courses/sap-foundations">SAP Foundations</Link>{data.mm.unlocked && <Link className="secondaryButton" href="/courses/sap-mm-level-1">SAP MM Level 1</Link>}<Link className="secondaryButton" href="/skills">Verified skills</Link>{data.workLabUnlocked&&<Link className="primaryButton" href="/job-readiness">Job-readiness assessment</Link>}</div></article><article className={`workGateCard ${data.workLabUnlocked ? "unlocked" : "locked"}`}><span className="eyebrow">Work Lab</span><h2>{data.workLabUnlocked ? "Work environment unlocked" : "Complete the learning path first"}</h2><p>{data.workLabUnlocked ? "You can now perform realistic junior SAP MM tickets, investigate incidents, and attempt the independent readiness gate." : "Finish SAP Foundations and SAP MM Level 1 before entering the workplace simulation."}</p>{data.workLabUnlocked ? <Link className="primaryButton" href="/work-lab">Enter Work Lab</Link> : <span className="workGateStatus">Foundations → SAP MM → Work Lab</span>}</article></section>
   </main>;
 }
