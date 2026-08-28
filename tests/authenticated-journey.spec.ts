@@ -20,15 +20,12 @@ test.describe('Authenticated learner journey', () => {
     await page.getByRole('link', { name: /Start course|Continue learning/i }).click();
     await expect(page).toHaveURL(/\/courses\/sap-mm-level-1/);
 
-    const alreadyComplete = await page.getByText(/Progress saved\. The next lesson is unlocked\./i).count();
+    const alreadyComplete = await page.getByText(/Lesson complete\. Your progress is saved and the next lesson is unlocked\./i).count();
     if (!alreadyComplete) {
-      await page.getByLabel('Step 1').fill('identify_need');
-      await page.getByLabel('Step 2').fill('purchase');
-      await page.getByLabel('Step 3').fill('goods_receipt');
-      await page.getByLabel('Step 4').fill('invoice_verification');
-      await page.getByRole('button', { name: 'Check & Verify' }).first().click();
-      await expect(page.getByText(/Document verified · 100%/i)).toBeVisible({ timeout: 15000 });
-      await expect(page.getByText(/Progress saved\. The next lesson is unlocked\./i)).toBeVisible();
+      await page.getByRole('radio', { name: 'Identify the need' }).first().check();
+      await page.getByRole('button', { name: 'Check answer' }).first().click();
+      await expect(page.getByText(/Correct — well done!/i).first()).toBeVisible({ timeout: 15000 });
+      await expect(page.getByText(/Lesson complete\. Your progress is saved and the next lesson is unlocked\./i).first()).toBeVisible();
     }
 
     await page.reload();
