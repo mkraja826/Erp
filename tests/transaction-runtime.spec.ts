@@ -1,7 +1,8 @@
 import { test, expect } from '@playwright/test';
 
 const exerciseId = 'd21345e6-726a-4d20-a6c4-3fb8283686d5';
-const answer = {
+const answer = 'Purchase Order';
+const poHeader = {
   document_type: 'NB',
   vendor: 'VEND-1001',
   material: 'MAT-101',
@@ -22,7 +23,7 @@ test.describe('Authenticated ERP transaction runtime', () => {
     await page.getByRole('button', { name: 'Sign in' }).last().click();
     await expect(page).toHaveURL(/\/dashboard$/, { timeout: 20000 });
 
-    const result = await page.evaluate(async ({ exerciseId, answer }) => {
+    const result = await page.evaluate(async ({ exerciseId, answer, poHeader }) => {
       const raw = window.localStorage.getItem('erp-edu-session');
       if (!raw) throw new Error('Missing stored learner session');
       const session = JSON.parse(raw) as { access_token?: string };
@@ -45,7 +46,7 @@ test.describe('Authenticated ERP transaction runtime', () => {
         headers,
         body: JSON.stringify({
           documentType: 'MM-PO',
-          header: answer,
+          header: poHeader,
           items: [],
           sourceExerciseId: exerciseId,
         }),
@@ -60,7 +61,7 @@ test.describe('Authenticated ERP transaction runtime', () => {
       if (!runtimeResponse.ok) throw new Error(`Runtime read failed: ${JSON.stringify(runtime)}`);
 
       return { verification, posted, runtime };
-    }, { exerciseId, answer });
+    }, { exerciseId, answer, poHeader });
 
     expect(result.verification.passed).toBe(true);
     expect(result.verification.percentage).toBe(100);
