@@ -21,7 +21,7 @@ test.describe('Mobile layout regression', () => {
     test.skip(testInfo.project.name !== 'mobile-chromium', 'Mobile viewport only.');
 
     await page.goto('/');
-    await expect(page.getByRole('link', { name: /Start SAP MM/i })).toBeVisible();
+    await expect(page.getByRole('link', { name: /Start SAP Foundations/i })).toBeVisible();
     await expectNoHorizontalOverflow(page);
 
     await page.goto('/auth');
@@ -30,15 +30,15 @@ test.describe('Mobile layout regression', () => {
     await expectNoHorizontalOverflow(page);
   });
 
-  test('dashboard and course remain mobile-safe after sign in', async ({ page }, testInfo) => {
+  test('dashboard and Foundations course remain mobile-safe after sign in', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'mobile-chromium', 'Mobile viewport only.');
 
     await signIn(page);
-    await expect(page.getByRole('link', { name: /Start course|Continue learning/i })).toBeVisible();
+    await expect(page.getByRole('link', { name: /Start SAP Foundations|Continue SAP Foundations/i })).toBeVisible();
     await expectNoHorizontalOverflow(page);
 
-    await page.getByRole('link', { name: /Start course|Continue learning/i }).click();
-    await expect(page).toHaveURL(/\/courses\/sap-mm-level-1/);
+    await page.getByRole('link', { name: /Start SAP Foundations|Continue SAP Foundations/i }).click();
+    await expect(page).toHaveURL(/\/courses\/sap-foundations/);
     await expect(page.getByText(/One small step at a time/i)).toBeVisible();
     await expect(page.getByRole('button', { name: /Check answer/i }).first()).toBeVisible();
     await expectNoHorizontalOverflow(page);
