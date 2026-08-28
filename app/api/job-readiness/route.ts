@@ -13,10 +13,11 @@ function atLeastApplied(level:string|undefined){return level==="applied"||level=
 async function context(request:Request){
   const token=tokenFrom(request);if(!token)return null;
   const user=await getSupabaseUser(token);if(!user)return null;
-  const assessments=await supabaseRest<Assessment[]>("job_readiness_assessments?slug=eq.sap-mm-foundation-job-readiness&is_published=eq.true&select=id,course_id,slug,title,description,duration_minutes,passing_score,max_ai_help,blueprint&limit=1",{},token);const assessment=assessments[0];if(!assessment)return null;
+  const assessments=await supabaseRest<Assessment[]>("job_readiness_assessments?slug=eq.sap-mm-level-1-job-readiness&is_published=eq.true&select=id,course_id,slug,title,description,duration_minutes,passing_score,max_ai_help,blueprint&limit=1",{},token);const assessment=assessments[0];if(!assessment)return null;
   const courses=await supabaseRest<{id:string}[]>("courses?slug=eq.sap-mm-level-1&select=id&limit=1",{},token);const l1=courses[0];
-  const enrollments=l1?await supabaseRest<Enrollment[]>(`enrollments?user_id=eq.${user.id}&course_id=eq.${l1.id}&select=status,progress_percent&limit=1`,{},token):[];
-  const competencies=l1?await supabaseRest<Competency[]>(`competencies?user_id=eq.${user.id}&course_id=eq.${l1.id}&skill_key=in.(independent_sap_mm_work,incident_investigation)&select=skill_key,level`,{},token):[];
+  if(!l1||assessment.course_id!==l1.id)return null;
+  const enrollments=await supabaseRest<Enrollment[]>(`enrollments?user_id=eq.${user.id}&course_id=eq.${l1.id}&select=status,progress_percent&limit=1`,{},token);
+  const competencies=await supabaseRest<Competency[]>(`competencies?user_id=eq.${user.id}&course_id=eq.${l1.id}&skill_key=in.(independent_sap_mm_work,incident_investigation)&select=skill_key,level`,{},token);
   const bySkill=new Map(competencies.map(c=>[c.skill_key,c.level]));
   const courseComplete=enrollments[0]?.status==="completed"&&Number(enrollments[0]?.progress_percent)>=100;
   const eligible=courseComplete&&atLeastApplied(bySkill.get("independent_sap_mm_work"))&&atLeastApplied(bySkill.get("incident_investigation"));
