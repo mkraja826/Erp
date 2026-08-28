@@ -6,10 +6,11 @@ import { getStoredSession } from "../../../lib/auth-client";
 type Props = {
   lessonId: string;
   previousLessonId?: string;
+  prerequisiteLabel?: string;
   children: ReactNode;
 };
 
-export default function LessonGate({ lessonId, previousLessonId, children }: Props) {
+export default function LessonGate({ lessonId, previousLessonId, prerequisiteLabel, children }: Props) {
   const [locked, setLocked] = useState(Boolean(previousLessonId));
   const [checking, setChecking] = useState(Boolean(previousLessonId));
 
@@ -48,6 +49,6 @@ export default function LessonGate({ lessonId, previousLessonId, children }: Pro
   }, [lessonId, previousLessonId]);
 
   if (checking) return <div className="lessonLocked">Checking your saved progress…</div>;
-  if (locked) return <div className="lessonLocked"><strong>Lesson locked</strong><span>Complete and verify the previous lesson to unlock this one.</span></div>;
+  if (locked) return <div className="lessonLocked"><strong>{prerequisiteLabel ? `${prerequisiteLabel} required` : "Lesson locked"}</strong><span>{prerequisiteLabel ? `Complete ${prerequisiteLabel} before starting this course.` : "Complete and verify the previous lesson to unlock this one."}</span></div>;
   return <>{children}</>;
 }
