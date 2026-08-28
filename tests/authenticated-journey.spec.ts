@@ -1,7 +1,15 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, Page } from '@playwright/test';
+
+async function completeChoice(page: Page, answer: string) {
+  const radio = page.getByRole('radio', { name: answer }).first();
+  await expect(radio).toBeVisible({ timeout: 10000 });
+  await radio.check();
+  await radio.locator('xpath=ancestor::form').getByRole('button', { name: 'Check answer' }).click();
+  await expect(page.getByText(/Correct — well done!/i).last()).toBeVisible({ timeout: 15000 });
+}
 
 test.describe('Authenticated learner journey', () => {
-  test('sign in, start SAP Foundations, persist progress, and keep SAP MM gated', async ({ page }) => {
+  test('complete SAP Foundations, unlock SAP MM, and persist the transition', async ({ page }) => {
     const email = process.env.E2E_LEARNER_EMAIL;
     const password = process.env.E2E_LEARNER_PASSWORD;
     test.skip(!email || !password, 'Requires a pre-confirmed Erpedu CI learner account.');
@@ -13,29 +21,41 @@ test.describe('Authenticated learner journey', () => {
 
     await expect(page).toHaveURL(/\/dashboard$/, { timeout: 20000 });
     await expect(page.getByText(/SAP Foundations/i).first()).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText(/SAP MM Level 1/i).first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(/Locked until SAP Foundations is complete/i)).toBeVisible();
 
     const session = await page.evaluate(() => window.localStorage.getItem('erp-edu-session'));
     expect(session).toBeTruthy();
 
-    await page.getByRole('link', { name: /Start SAP Foundations|Continue SAP Foundations/i }).click();
+    await page.goto('/courses/sap-mm-level-1');
+    await expect(page.getByText(/SAP Foundations required/i).first()).toBeVisible({ timeout: 10000 });
+
+    await page.goto('/dashboard');
+    await page.getByRole('link', { name: 'Start SAP Foundations' }).click();
     await expect(page).toHaveURL(/\/courses\/sap-foundations/);
     await expect(page.getByText(/What is ERP\?/i).first()).toBeVisible();
 
-    const alreadyComplete = await page.getByText(/Lesson complete\. Your progress is saved and the next lesson is unlocked\./i).count();
-    if (!alreadyComplete) {
-      await page.getByRole('radio', { name: 'To connect departments and business information' }).first().check();
-      await page.getByRole('button', { name: 'Check answer' }).first().click();
-      await expect(page.getByText(/Correct — well done!/i).first()).toBeVisible({ timeout: 15000 });
-      await expect(page.getByText(/Lesson complete\. Your progress is saved and the next lesson is unlocked\./i).first()).toBeVisible();
-    }
+    await completeChoice(page, 'To connect departments and business information');
+    await completeChoice(page, 'Enterprise software used to run business processes');
+    await completeChoice(page, 'MM');
+    await completeChoice(page, 'A business need is identified');
+
+    const shortAnswer = page.getByLabel('Type a short answer').first();
+    await expect(shortAnswer).toBeVisible({ timeout: 10000 });
+    await shortAnswer.fill('master');
+    await shortAnswer.locator('xpath=ancestor::form').getByRole('button', { name: 'Check answer' }).click();
+    await expect(page.getByText(/Correct — well done!/i).last()).toBeVisible({ timeout: 15000 });
 
     await page.reload();
     await expect(page.getByText(/Checking your saved progress/i)).toHaveCount(0, { timeout: 10000 });
-    const locked = await page.getByText(/Lesson locked/i).count();
-    expect(locked).toBeLessThan(5);
+    await expect(page.getByText(/Lesson locked/i)).toHaveCount(0);
 
     await page.goto('/dashboard');
-    await expect(page.getByText(/[1-9]\d* of 5 lessons verified/i)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(/5 of 5 lessons verified/i)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(/Foundations complete\. Continue into SAP Materials Management\./i)).toBeVisible();
+
+    await page.getByRole('link', { name: 'Start SAP MM Level 1' }).click();
+    await expect(page).toHaveURL(/\/courses\/sap-mm-level-1/);
+    await expect(page.getByText(/What is SAP MM\?/i).first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(/SAP Foundations required/i)).toHaveCount(0);
   });
 });
