@@ -61,7 +61,11 @@ export async function POST(request:Request){
   const incident=incidents[0];if(!incident)return NextResponse.json({error:"Incident not found"},{status:404});
   const root=normalizeText(body.rootCause??"");const resolution=normalizeText(body.resolution??"");const rootTerms=(incident.expected_resolution.root_cause_terms as string[]|undefined)??[];const resolutionTerms=(incident.expected_resolution.resolution_terms as string[]|undefined)??[];
   const rootScore=includesAny(root,rootTerms)?50:root.length>=20?25:0;const resolutionScore=includesAny(resolution,resolutionTerms)?50:resolution.length>=20?25:0;const score=rootScore+resolutionScore;const passed=score>=80;const result=passed?"pass":score>0?"partial":"fail";
-  await supabaseRest("work_lab_incident_attempts",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify({incident_id:incident.id,user_id:ctx.user.id,submitted_root_cause:body.rootCause??"",submitted_resolution:body.resolution??"",score,ai_help_count:Math.max(0,body.aiHelpCount??0),result})},ctx.token);
+  const created=await supabaseRest<Attempt[]>("work_lab_incident_attempts",{method:"POST",headers:{Prefer:"return=representation"},body:JSON.stringify({incident_id:incident.id,user_id:ctx.user.id,submitted_root_cause:body.rootCause??"",submitted_resolution:body.resolution??"",score,ai_help_count:Math.max(0,body.aiHelpCount??0),result})},ctx.token);
+  const attemptId=created[0]?.id;
+  if(attemptId){
+    await supabaseRest("rpc/record_competency_evidence_from_source",{method:"POST",body:JSON.stringify({p_source_type:"incident_lab",p_source_id:attemptId,p_skill_key:"incident_investigation"})},ctx.token);
+  }
   if(passed)await supabaseRest(`work_lab_incidents?id=eq.${incident.id}&user_id=eq.${ctx.user.id}`,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({status:"resolved",resolved_at:new Date().toISOString()})},ctx.token);
   return NextResponse.json({passed,score,result,independenceScore:Math.max(0,100-Math.min(100,(body.aiHelpCount??0)*20)),feedback:passed?"Incident resolved. Your diagnosis and corrective action are verified.":"Your investigation is incomplete. Re-open the linked documents, identify the process break, and revise the resolution."});
 }
