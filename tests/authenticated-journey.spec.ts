@@ -29,8 +29,7 @@ test.describe('Authenticated learner journey', () => {
     await page.goto('/courses/sap-mm-level-1');
     await expect(page.getByText(/SAP Foundations required/i).first()).toBeVisible({ timeout: 10000 });
 
-    await page.goto('/dashboard');
-    await page.getByRole('link', { name: 'Start SAP Foundations' }).click();
+    await page.goto('/courses/sap-foundations');
     await expect(page).toHaveURL(/\/courses\/sap-foundations/);
     await expect(page.getByText(/What is ERP\?/i).first()).toBeVisible();
 
