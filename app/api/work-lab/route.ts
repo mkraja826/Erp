@@ -55,6 +55,10 @@ export async function POST(request: Request) {
   if (!task) return NextResponse.json({error:"Task not found"},{status:404});
   const percentage = score(task.expected_state.expected ?? {}, body.answer ?? {});
   const passed = percentage >= 80;
-  await supabaseRest("work_lab_attempts",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify({user_id:ctx.user.id,task_id:task.id,submitted_state:body.answer ?? {},score:percentage,result:passed?"pass":percentage>0?"partial":"fail",ai_help_count:Math.max(0,body.aiHelpCount ?? 0),completed_at:new Date().toISOString()})},ctx.token);
+  const created = await supabaseRest<Attempt[]>("work_lab_attempts",{method:"POST",headers:{Prefer:"return=representation"},body:JSON.stringify({user_id:ctx.user.id,task_id:task.id,submitted_state:body.answer ?? {},score:percentage,result:passed?"pass":percentage>0?"partial":"fail",ai_help_count:Math.max(0,body.aiHelpCount ?? 0),completed_at:new Date().toISOString()})},ctx.token);
+  const attemptId = created[0]?.id;
+  if (attemptId) {
+    await supabaseRest("rpc/record_competency_evidence_from_source",{method:"POST",body:JSON.stringify({p_source_type:"work_lab",p_source_id:attemptId,p_skill_key:"independent_sap_mm_work"})},ctx.token);
+  }
   return NextResponse.json({passed,percentage,feedback:passed?"Work ticket verified. This task is now part of your work history.":"Not verified yet. Re-check the ticket details and submit again.",independenceScore:Math.max(0,100-Math.min(100,(body.aiHelpCount ?? 0)*20))});
 }
