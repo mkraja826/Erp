@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Authenticated learner journey', () => {
-  test('sign in, verify lesson, persist progress, and unlock next lesson', async ({ page }) => {
+  test('sign in, start SAP Foundations, persist progress, and keep SAP MM gated', async ({ page }) => {
     const email = process.env.E2E_LEARNER_EMAIL;
     const password = process.env.E2E_LEARNER_PASSWORD;
     test.skip(!email || !password, 'Requires a pre-confirmed Erpedu CI learner account.');
@@ -12,13 +12,14 @@ test.describe('Authenticated learner journey', () => {
     await page.getByRole('button', { name: 'Sign in' }).last().click();
 
     await expect(page).toHaveURL(/\/dashboard$/, { timeout: 20000 });
-    await expect(page.getByText(/SAP MM Level 1/i)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(/SAP Foundations/i).first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(/SAP MM Level 1/i).first()).toBeVisible({ timeout: 10000 });
 
     const session = await page.evaluate(() => window.localStorage.getItem('erp-edu-session'));
     expect(session).toBeTruthy();
 
-    await page.getByRole('link', { name: /Start course|Continue learning/i }).click();
-    await expect(page).toHaveURL(/\/courses\/sap-mm-level-1/);
+    await page.getByRole('link', { name: /Start SAP Foundations|Continue SAP Foundations/i }).click();
+    await expect(page).toHaveURL(/\/courses\/sap-foundations/);
     await expect(page.getByText(/What is ERP\?/i).first()).toBeVisible();
 
     const alreadyComplete = await page.getByText(/Lesson complete\. Your progress is saved and the next lesson is unlocked\./i).count();
@@ -32,9 +33,9 @@ test.describe('Authenticated learner journey', () => {
     await page.reload();
     await expect(page.getByText(/Checking your saved progress/i)).toHaveCount(0, { timeout: 10000 });
     const locked = await page.getByText(/Lesson locked/i).count();
-    expect(locked).toBeLessThan(17);
+    expect(locked).toBeLessThan(5);
 
     await page.goto('/dashboard');
-    await expect(page.getByText(/[1-9]\d* of \d+ lessons verified/i)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(/[1-9]\d* of 5 lessons verified/i)).toBeVisible({ timeout: 10000 });
   });
 });
