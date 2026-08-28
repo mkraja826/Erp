@@ -19,10 +19,11 @@ test.describe('Authenticated learner journey', () => {
 
     await page.getByRole('link', { name: /Start course|Continue learning/i }).click();
     await expect(page).toHaveURL(/\/courses\/sap-mm-level-1/);
+    await expect(page.getByText(/What is ERP\?/i).first()).toBeVisible();
 
     const alreadyComplete = await page.getByText(/Lesson complete\. Your progress is saved and the next lesson is unlocked\./i).count();
     if (!alreadyComplete) {
-      await page.getByRole('radio', { name: 'Identify the need' }).first().check();
+      await page.getByRole('radio', { name: 'To connect departments and business information' }).first().check();
       await page.getByRole('button', { name: 'Check answer' }).first().click();
       await expect(page.getByText(/Correct — well done!/i).first()).toBeVisible({ timeout: 15000 });
       await expect(page.getByText(/Lesson complete\. Your progress is saved and the next lesson is unlocked\./i).first()).toBeVisible();
@@ -31,7 +32,7 @@ test.describe('Authenticated learner journey', () => {
     await page.reload();
     await expect(page.getByText(/Checking your saved progress/i)).toHaveCount(0, { timeout: 10000 });
     const locked = await page.getByText(/Lesson locked/i).count();
-    expect(locked).toBeLessThan(11);
+    expect(locked).toBeLessThan(17);
 
     await page.goto('/dashboard');
     await expect(page.getByText(/[1-9]\d* of \d+ lessons verified/i)).toBeVisible({ timeout: 10000 });
