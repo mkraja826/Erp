@@ -18,7 +18,8 @@ async function completeChoice(page: Page, question: string, answer: string) {
 }
 
 test.describe('Authenticated learner journey', () => {
-  test('complete SAP Foundations, unlock SAP MM, and persist the transition', async ({ page }) => {
+  test('complete SAP Foundations, unlock SAP MM, and persist the transition', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'chromium', 'This stateful certification uses one shared reset learner; mobile behavior is covered by dedicated mobile regression tests.');
     test.setTimeout(90000);
 
     const email = process.env.E2E_LEARNER_EMAIL;
