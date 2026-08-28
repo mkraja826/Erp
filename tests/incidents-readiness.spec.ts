@@ -130,7 +130,7 @@ test.describe('Work Lab incidents and job readiness', () => {
       return { before, started, submission, after };
     }, { answers });
 
-    expect(result.before.assessment.title).toMatch(/SAP MM Foundation Job-Readiness Assessment/i);
+    expect(result.before.assessment.title).toMatch(/SAP MM Level 1 Job-Readiness Assessment/i);
     expect(result.submission.passed).toBe(true);
     expect(result.submission.score).toBe(100);
     expect(result.submission.independenceScore).toBe(100);
