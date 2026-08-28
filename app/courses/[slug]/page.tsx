@@ -25,6 +25,15 @@ export default async function CoursePage({ params }: PageProps) {
   const lessons = course.course_modules.flatMap((module) => module.lessons.map((lesson) => ({ ...lesson, moduleTitle: module.title })));
   const totalMinutes = lessons.reduce((sum, lesson) => sum + lesson.estimated_minutes, 0);
 
+  let foundationPrerequisiteLessonId: string | undefined;
+  if (slug === "sap-mm-level-1") {
+    const foundation = await getPublishedCourse("sap-foundations");
+    const foundationLessons = foundation?.course_modules.flatMap((module) => module.lessons) ?? [];
+    foundationPrerequisiteLessonId = foundationLessons.at(-1)?.id;
+  }
+
+  const isFoundation = slug === "sap-foundations";
+
   return (
     <main className="coursePage">
       <header className="courseTopbar">
@@ -33,7 +42,7 @@ export default async function CoursePage({ params }: PageProps) {
       </header>
 
       <section className="courseHero">
-        <div><span className="eyebrow">Beginner learning path</span><h1>{course.title}</h1><p>{course.description}</p></div>
+        <div><span className="eyebrow">{isFoundation ? "Course 1 · Start here" : "Course 2 · SAP MM"}</span><h1>{course.title}</h1><p>{course.description}</p></div>
         <div className="courseStats"><div><strong>{course.course_modules.length}</strong><span>Modules</span></div><div><strong>{lessons.length}</strong><span>Lessons</span></div><div><strong>{totalMinutes}</strong><span>Minutes</span></div></div>
       </section>
 
@@ -47,12 +56,13 @@ export default async function CoursePage({ params }: PageProps) {
             {module.lessons.map((lesson) => {
               const content = lesson.content as LessonContent;
               const lessonIndex = lessons.findIndex((item) => item.id === lesson.id);
-              const previousLessonId = lessonIndex > 0 ? lessons[lessonIndex - 1].id : undefined;
+              const previousLessonId = lessonIndex > 0 ? lessons[lessonIndex - 1].id : foundationPrerequisiteLessonId;
               const nextLesson = lessons[lessonIndex + 1];
               const whyItMatters = content.whyItMatters ?? lesson.summary;
               const remember = content.remember ?? content.goal;
+              const prerequisiteLabel = lessonIndex === 0 && foundationPrerequisiteLessonId ? "SAP Foundations" : undefined;
               return (
-                <LessonGate key={lesson.id} lessonId={lesson.id} previousLessonId={previousLessonId}>
+                <LessonGate key={lesson.id} lessonId={lesson.id} previousLessonId={previousLessonId} prerequisiteLabel={prerequisiteLabel}>
                   <article className="lessonCard">
                     <div className="lessonMeta"><span>{lesson.lesson_type}</span><span>{lesson.estimated_minutes} min</span><span>Lesson {lessonIndex + 1} of {lessons.length}</span></div>
                     <h3>{lesson.title}</h3>
@@ -62,8 +72,8 @@ export default async function CoursePage({ params }: PageProps) {
                       learningDetail="Read the short explanation and remember the key idea."
                       now="Learn the idea, then answer the quick check"
                       nowDetail="Questions use multiple choice or a short answer so you can focus on understanding."
-                      next={nextLesson ? nextLesson.title : "Move into guided ERP practice"}
-                      nextDetail={nextLesson ? "A correct answer unlocks the next lesson." : "After the course, you apply the same ideas in realistic business tasks."}
+                      next={nextLesson ? nextLesson.title : isFoundation ? "Start SAP MM Level 1" : "Move into guided ERP practice"}
+                      nextDetail={nextLesson ? "A correct answer unlocks the next lesson." : isFoundation ? "Finish Foundations, then continue into SAP Materials Management." : "After the course, you apply the same ideas in realistic business tasks."}
                     />
 
                     {whyItMatters && <section className="microBlock whyBlock"><span className="microLabel">Why this matters</span><p>{whyItMatters}</p></section>}
@@ -87,7 +97,7 @@ export default async function CoursePage({ params }: PageProps) {
         ))}
       </div>
 
-      <section className="workLabTeaser"><span className="eyebrow">After course completion</span><h2>Your Work Lab unlocks next</h2><p>Guidance reduces gradually as you move from simple learning into realistic junior SAP MM work.</p></section>
+      {isFoundation ? <section className="workLabTeaser"><span className="eyebrow">Next course</span><h2>SAP MM Level 1</h2><p>After Foundations, continue into Materials Management, procurement, inventory, and invoice verification.</p><Link className="primaryButton" href="/courses/sap-mm-level-1">Go to SAP MM Level 1</Link></section> : <section className="workLabTeaser"><span className="eyebrow">After course completion</span><h2>Your Work Lab unlocks next</h2><p>Guidance reduces gradually as you move from simple learning into realistic junior SAP MM work.</p></section>}
     </main>
   );
 }
