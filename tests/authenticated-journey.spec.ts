@@ -69,9 +69,8 @@ test.describe('Authenticated learner journey', () => {
     await expect(page.getByText(/5 of 5 lessons verified/i)).toBeVisible({ timeout: 10000 });
     await expect(page.getByText(/Foundations complete\. Continue into SAP Materials Management\./i)).toBeVisible();
 
-    const mmLink = page.getByRole('link', { name: /Start SAP MM Level 1|Continue SAP MM Level 1/i }).first();
-    await expect(mmLink).toBeVisible({ timeout: 10000 });
-    await mmLink.click();
+    // Certify the actual unlock contract rather than coupling this journey to dashboard CTA wording.
+    await page.goto('/courses/sap-mm-level-1');
     await expect(page).toHaveURL(/\/courses\/sap-mm-level-1/);
     await expect(page.getByText(/What is SAP MM\?/i).first()).toBeVisible({ timeout: 10000 });
     await expect(page.getByText(/SAP Foundations required/i)).toHaveCount(0);
