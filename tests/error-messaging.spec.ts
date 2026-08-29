@@ -22,9 +22,9 @@ test.describe('ERP workplace error messaging', () => {
     });
 
     async function fillPurchaseRequisition() {
-      await page.getByLabel('Material').selectOption({ index: 1 });
-      await page.getByLabel('Plant').selectOption({ index: 1 });
-      await page.getByLabel('Requested quantity').fill('10');
+      await page.getByLabel('Material', { exact: true }).selectOption({ index: 1 });
+      await page.getByLabel('Plant', { exact: true }).selectOption({ index: 1 });
+      await page.getByLabel('Requested quantity', { exact: true }).fill('10');
       await page.getByRole('button', { name: 'Post document' }).click();
     }
 
