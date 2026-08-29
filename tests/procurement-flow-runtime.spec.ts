@@ -25,7 +25,6 @@ test.describe('Procure-to-pay simulator runtime', () => {
       const today=new Date().toISOString().slice(0,10);
       const before=await runtime();
       const baseline=Number((before.inventory??[]).find((row:Record<string,unknown>)=>row.material_code==='MAT-101'&&row.plant_code==='HYD1'&&row.storage_location_code==='SL01')?.quantity??0);
-
       const invalidMaterial=await post('create_pr',{material:'MAT-TAMPERED',plant:'HYD1',quantity:100},400);
       const invalidPlant=await post('create_pr',{material:'MAT-101',plant:'PLANT-TAMPERED',quantity:100},400);
       const pr=await post('create_pr',{material:'MAT-101',plant:'HYD1',quantity:100});
@@ -71,5 +70,16 @@ test.describe('Procure-to-pay simulator runtime', () => {
     expect(result.finalFlow.stages.purchaseOrders).toEqual(expect.arrayContaining([expect.objectContaining({document_number:result.po.documentNumber,status:'closed'})]));
     expect(result.finalFlow.stages.invoices).toEqual(expect.arrayContaining([expect.objectContaining({document_number:result.mismatch.documentNumber,status:'blocked'}),expect.objectContaining({document_number:result.matched.documentNumber,status:'posted'})]));
     expect(result.closedInvoiceAttempt.error).toMatch(/already closed/i);
+
+    await page.goto(`/documents/${encodeURIComponent(result.po.documentNumber)}`);
+    await expect(page.getByText('End-to-end document flow')).toBeVisible();
+    await expect(page.getByText(result.pr.documentNumber)).toBeVisible();
+    await expect(page.getByText(result.po.documentNumber)).toBeVisible();
+    await expect(page.getByText(result.gr1.documentNumber)).toBeVisible();
+    await expect(page.getByText(result.gr2.documentNumber)).toBeVisible();
+    await expect(page.getByText(result.mismatch.documentNumber)).toBeVisible();
+    await expect(page.getByText(result.matched.documentNumber)).toBeVisible();
+    await expect(page.getByText(/Goods-receipt stock impact/i)).toBeVisible();
+    await expect(page.getByText(/current stock/i).first()).toBeVisible();
   });
 });
