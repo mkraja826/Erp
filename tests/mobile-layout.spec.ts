@@ -43,4 +43,47 @@ test.describe('Mobile layout regression', () => {
     await expect(page.getByRole('button', { name: /Check answer/i }).first()).toBeVisible();
     await expectNoHorizontalOverflow(page);
   });
+
+  test('procurement workplace remains operable on a phone viewport', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'mobile-chromium', 'Mobile viewport only.');
+
+    await signIn(page);
+    await page.goto('/procurement-flow');
+    await page.getByRole('button', { name: /Workplace/ }).click();
+    await expect(page.getByRole('button', { name: /Workplace/ })).toHaveClass(/active/);
+    await expectNoHorizontalOverflow(page);
+
+    const requirementSection = page.locator('section').filter({ hasText: 'Requirement data' }).first();
+    const selects = requirementSection.locator('select');
+    const quantity = requirementSection.locator('input[type="number"]').first();
+    await expect(selects).toHaveCount(2);
+    await expect(quantity).toBeVisible();
+
+    const businessControls = [selects.nth(0), selects.nth(1), quantity];
+    for (const control of businessControls) {
+      await expect(control).toBeVisible();
+      const height = await control.evaluate(element => element.getBoundingClientRect().height);
+      expect(height).toBeGreaterThanOrEqual(44);
+    }
+
+    await selects.nth(0).selectOption({ index: 1 });
+    await selects.nth(1).selectOption({ index: 1 });
+    await quantity.fill('10');
+
+    const postButton = page.getByRole('button', { name: 'Post document' });
+    await postButton.scrollIntoViewIfNeeded();
+    await expect(postButton).toBeVisible();
+    const postHeight = await postButton.evaluate(element => element.getBoundingClientRect().height);
+    expect(postHeight).toBeGreaterThanOrEqual(44);
+    await expectNoHorizontalOverflow(page);
+
+    const itemTable = page.locator('table').first();
+    await expect(itemTable).toBeVisible();
+    const tableContained = await itemTable.evaluate(element => {
+      const wrapper = element.parentElement;
+      if (!wrapper) return false;
+      return wrapper.clientWidth <= document.documentElement.clientWidth && wrapper.scrollWidth >= wrapper.clientWidth;
+    });
+    expect(tableContained).toBeTruthy();
+  });
 });
