@@ -7,6 +7,7 @@ type BalanceRow={quantity:number};
 
 function authToken(request:Request){const auth=request.headers.get("authorization");return auth?.startsWith("Bearer ")?auth.slice(7):undefined;}
 function docNumber(prefix:string){return `${prefix}-${Date.now().toString().slice(-9)}`;}
+function isoDate(value:unknown){const raw=String(value??"").trim();return /^\d{4}-\d{2}-\d{2}$/.test(raw)?raw:new Date().toISOString().slice(0,10);}
 async function documentsForUser(userId:string,token:string){return supabaseRest<ErpDocument[]>(`erp_documents?user_id=eq.${userId}&select=id,document_number,document_type,status,header,items,created_at&order=created_at.asc`,{},token);}
 async function findOwnedDocument(userId:string,token:string,documentNumber:string,type:string){const rows=await supabaseRest<ErpDocument[]>(`erp_documents?user_id=eq.${userId}&document_number=eq.${encodeURIComponent(documentNumber)}&document_type=eq.${type}&select=id,document_number,document_type,status,header,items,created_at&limit=1`,{},token);return rows[0]??null;}
 async function updateDocumentStatus(id:string,status:string,token:string){await supabaseRest(`erp_documents?id=eq.${id}`,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({status})},token);}
@@ -39,21 +40,24 @@ export async function POST(request:Request){
 
   if(body.action==="post_gr"){
     const sourcePo=String(data.source_po??"").trim(),receivedQuantity=Number(data.received_quantity??0),storageLocation=String(data.storage_location??"SL01").trim()||"SL01";
+    const postingDate=isoDate(data.posting_date),documentDate=isoDate(data.document_date),movementType=String(data.movement_type??"101").trim()||"101";
     if(!sourcePo||receivedQuantity<=0)return NextResponse.json({error:"Source PO and received quantity are required."},{status:400});
+    if(movementType!=="101")return NextResponse.json({error:"Level 1 goods receipt supports movement type 101 only."},{status:400});
+    if(documentDate>postingDate)return NextResponse.json({error:"Document date cannot be after posting date."},{status:400});
     const po=await findOwnedDocument(user.id,token,sourcePo,"PO");if(!po)return NextResponse.json({error:"Choose a purchase order that belongs to your account."},{status:400});
     if(po.status==="closed")return NextResponse.json({error:"This purchase order is closed and cannot receive more goods."},{status:400});
     const item=po.items[0]??{},orderedQuantity=Number(item.quantity??0);if(receivedQuantity>orderedQuantity)return NextResponse.json({error:"Received quantity cannot exceed the PO quantity in this Level 1 simulator."},{status:400});
     const existing=await supabaseRest<ErpDocument[]>(`erp_documents?user_id=eq.${user.id}&document_type=eq.GR&header->>source_po=eq.${encodeURIComponent(sourcePo)}&select=id,items`,{},token);
-    const alreadyReceived=existing.reduce((sum,row)=>sum+Number(row.items?.[0]?.received_quantity??0),0);if(alreadyReceived+receivedQuantity>orderedQuantity)return NextResponse.json({error:"This receipt would exceed the remaining open PO quantity."},{status:400});
+    const alreadyReceived=existing.reduce((sum,row)=>sum+Number(row.items?.[0]?.received_quantity??0),0),openBefore=orderedQuantity-alreadyReceived;
+    if(receivedQuantity>openBefore)return NextResponse.json({error:"This receipt would exceed the remaining open PO quantity."},{status:400});
+    const totalReceived=alreadyReceived+receivedQuantity,openAfter=orderedQuantity-totalReceived,poStatus=openAfter===0?"fully_received":"partially_received";
     const number=docNumber("GR"),plant=String(po.header.plant??""),material=String(item.material??"");
-    await supabaseRest("erp_documents",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify({user_id:user.id,document_type:"GR",document_number:number,status:"posted",header:{source_po:po.document_number,plant,storage_location:storageLocation},items:[{material,received_quantity:receivedQuantity}]})},token);
-    const totalReceived=alreadyReceived+receivedQuantity;
-    const poStatus=totalReceived>=orderedQuantity?"fully_received":"partially_received";
+    await supabaseRest("erp_documents",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify({user_id:user.id,document_type:"GR",document_number:number,status:"posted",header:{source_po:po.document_number,plant,storage_location:storageLocation,posting_date:postingDate,document_date:documentDate,movement_type:movementType,ordered_quantity:orderedQuantity,previously_received_quantity:alreadyReceived,open_quantity_before:openBefore,open_quantity_after:openAfter,po_receipt_status:poStatus},items:[{material,received_quantity:receivedQuantity}]})},token);
     await updateDocumentStatus(po.id,poStatus,token);
     const balances=await supabaseRest<BalanceRow[]>(`erp_inventory_balances?user_id=eq.${user.id}&material_code=eq.${encodeURIComponent(material)}&plant_code=eq.${encodeURIComponent(plant)}&storage_location_code=eq.${encodeURIComponent(storageLocation)}&select=quantity&limit=1`,{},token);
     const newBalance=Number(balances[0]?.quantity??0)+receivedQuantity;
     await supabaseRest("erp_inventory_balances?on_conflict=user_id,material_code,plant_code,storage_location_code",{method:"POST",headers:{Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify({user_id:user.id,material_code:material,plant_code:plant,storage_location_code:storageLocation,quantity:newBalance,updated_at:new Date().toISOString()})},token);
-    return NextResponse.json({posted:true,documentNumber:number,status:"posted",sourceDocument:po.document_number,poStatus,openQuantity:orderedQuantity-totalReceived,inventoryBalance:newBalance,next:"post_invoice"});
+    return NextResponse.json({posted:true,documentNumber:number,status:"posted",sourceDocument:po.document_number,poStatus,orderedQuantity,previouslyReceived:alreadyReceived,receivedQuantity,openQuantity:openAfter,postingDate,documentDate,movementType,inventoryBalance:newBalance,next:"post_invoice"});
   }
 
   if(body.action==="post_invoice"){
