@@ -34,6 +34,7 @@ export default function ProcurementFlowPage(){
   const [lastSuccess,setLastSuccess]=useState(false);
 
   useEffect(()=>{void load();},[]);
+  useEffect(()=>{if(active==="post_gr")setValues(v=>({...v,movement_type:v.movement_type||"101",posting_date:v.posting_date||new Date().toISOString().slice(0,10),document_date:v.document_date||new Date().toISOString().slice(0,10)}));},[active]);
   async function load(){const [a,b]=await Promise.all([authenticatedFetch("/api/procurement-flow"),authenticatedFetch("/api/erp-runtime")]);if(!a||!b)return;setFlow(await a.json());setRuntime(await b.json());}
   const master=(type:string)=>runtime?.masterData.filter(x=>x.entity_type===type)??[];
   const prs=flow?.stages.requisition??[];const pos=flow?.stages.purchaseOrders??[];const grs=flow?.stages.goodsReceipts??[];const ivs=flow?.stages.invoices??[];
@@ -46,15 +47,19 @@ export default function ProcurementFlowPage(){
     {key:"post_invoice" as Action,label:"4. Invoice",done:ivs.some(x=>x.status==="posted")},
   ],[prs.length,pos.length,grs.length,ivs]);
 
-  const required:Record<Action,string[]>={create_pr:["material","plant","quantity"],create_po:["source_pr","vendor","purchasing_organization","unit_price"],post_gr:["source_po","storage_location","received_quantity"],post_invoice:["source_po","invoice_value"]};
+  const required:Record<Action,string[]>={create_pr:["material","plant","quantity"],create_po:["source_pr","vendor","purchasing_organization","unit_price"],post_gr:["source_po","storage_location","received_quantity","posting_date","document_date","movement_type"],post_invoice:["source_po","invoice_value"]};
   const ready=required[active].every(key=>(values[key]??"").trim().length>0);
   const sourceDoc=active==="create_po"?prs.find(x=>x.document_number===values.source_pr):active==="post_gr"||active==="post_invoice"?pos.find(x=>x.document_number===values.source_po):undefined;
+  const sourcePoReceipts=sourceDoc?grs.filter(x=>x.header.source_po===sourceDoc.document_number):[];
+  const orderedQuantity=Number(sourceDoc?.items?.[0]?.quantity??0);
+  const previouslyReceived=sourcePoReceipts.reduce((sum,row)=>sum+Number(row.items?.[0]?.received_quantity??0),0);
+  const openQuantity=Math.max(0,orderedQuantity-previouslyReceived);
 
-  async function post(){if(!ready)return;setPosting(true);setMessage("");setLastSuccess(false);try{const response=await authenticatedFetch("/api/procurement-flow",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:active,data:values})});if(!response)return;const payload=await response.json();if(!response.ok){setMessage(payload.error??"Unable to post document.");return;}setMessage(`${payload.documentNumber} posted${payload.matchStatus?` · ${payload.matchStatus}`:""}.`);setLastSuccess(true);setValues({});await load();if(payload.next)setActive(payload.next);}finally{setPosting(false);}}
+  async function post(){if(!ready)return;setPosting(true);setMessage("");setLastSuccess(false);try{const response=await authenticatedFetch("/api/procurement-flow",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:active,data:values})});if(!response)return;const payload=await response.json();if(!response.ok){setMessage(payload.error??"Unable to post document.");return;}setMessage(`${payload.documentNumber} posted${payload.matchStatus?` · ${payload.matchStatus}`:""}${payload.openQuantity!==undefined?` · open qty ${payload.openQuantity}`:""}.`);setLastSuccess(true);setValues({});await load();if(payload.next)setActive(payload.next);}finally{setPosting(false);}}
 
   const showFieldHints=mode==="guided";
   function select(label:string,key:string,options:Array<{value:string;text:string}>,hint:string){return <label className={styles.field}><span className={styles.fieldLabel}>{label}<b className={styles.required}>*</b></span><select value={values[key]??""} onChange={e=>{setValues(v=>({...v,[key]:e.target.value}));setLastSuccess(false);setMessage("");}}><option value="">Select value…</option>{options.map(o=><option value={o.value} key={o.value}>{o.text}</option>)}</select>{showFieldHints&&<small className={styles.fieldHint}>{hint}</small>}</label>}
-  function input(label:string,key:string,type="text",hint="Required business value"){return <label className={styles.field}><span className={styles.fieldLabel}>{label}<b className={styles.required}>*</b></span><input type={type} min={type==="number"?0:undefined} value={values[key]??""} onChange={e=>{setValues(v=>({...v,[key]:e.target.value}));setLastSuccess(false);setMessage("");}}/>{showFieldHints&&<small className={styles.fieldHint}>{hint}</small>}</label>}
+  function input(label:string,key:string,type="text",hint="Required business value",readOnly=false){return <label className={styles.field}><span className={styles.fieldLabel}>{label}<b className={styles.required}>*</b></span><input type={type} min={type==="number"?0:undefined} readOnly={readOnly} value={values[key]??""} onChange={e=>{setValues(v=>({...v,[key]:e.target.value}));setLastSuccess(false);setMessage("");}}/>{showFieldHints&&<small className={styles.fieldHint}>{hint}</small>}</label>}
 
   const current=labels[active];
   const shellStatus=posting?"checking":lastSuccess?"success":message?"warning":"ready";
@@ -82,19 +87,26 @@ export default function ProcurementFlowPage(){
           <div className={styles.contextItem}><span>Document status</span><strong>{posting?"Processing":"Draft"}</strong></div>
         </div>
 
+        {active==="post_gr"&&sourceDoc&&<div className={styles.contextStrip}>
+          <div className={styles.contextItem}><span>PO status</span><strong>{sourceDoc.status}</strong></div>
+          <div className={styles.contextItem}><span>Ordered quantity</span><strong>{orderedQuantity}</strong></div>
+          <div className={styles.contextItem}><span>Previously received</span><strong>{previouslyReceived}</strong></div>
+          <div className={styles.contextItem}><span>Open quantity</span><strong>{openQuantity}</strong></div>
+        </div>}
+
         <section className={styles.section}>
           <div className={styles.sectionHeader}><strong>{active==="create_pr"?"Requirement data":active==="create_po"?"Purchasing header":active==="post_gr"?"Receipt header":"Invoice header"}</strong><span>* Required fields</span></div>
           <div className={styles.fields}>
             {active==="create_pr"&&<>{select("Material","material",master("material").map(x=>({value:x.code,text:`${x.code} · ${x.name}`})),"Material master item to be requested")}{select("Plant","plant",master("plant").map(x=>({value:x.code,text:`${x.code} · ${x.name}`})),"Business location that requires the material")}{input("Requested quantity","quantity","number","Quantity requested by the business")}</>}
             {active==="create_po"&&<>{select("Source purchase requisition","source_pr",availablePrs.map(x=>({value:x.document_number,text:`${x.document_number} · ${x.status}`})),"Open internal requirement")}{select("Vendor","vendor",master("vendor").map(x=>({value:x.code,text:`${x.code} · ${x.name}`})),"Approved supplier")}{select("Purchasing organization","purchasing_organization",master("purchasing_organization").map(x=>({value:x.code,text:`${x.code} · ${x.name}`})),"Buying organization responsible for the PO")}{input("Unit price","unit_price","number","Agreed supplier price per unit")}</>}
-            {active==="post_gr"&&<>{select("Source purchase order","source_po",availablePos.map(x=>({value:x.document_number,text:`${x.document_number} · ${x.status}`})),"Open PO being received")}{select("Storage location","storage_location",master("storage_location").map(x=>({value:x.code,text:`${x.code} · ${x.name}`})),"Stock location where material will be stored")}{input("Received quantity","received_quantity","number","Physical quantity received today")}</>}
+            {active==="post_gr"&&<>{select("Source purchase order","source_po",availablePos.map(x=>({value:x.document_number,text:`${x.document_number} · ${x.status}`})),"Open PO being received")}{input("Posting date","posting_date","date","Accounting date for the stock posting")}{input("Document date","document_date","date","Date shown on the delivery document")}{input("Movement type","movement_type","text","101 · Goods receipt for purchase order",true)}{select("Storage location","storage_location",master("storage_location").map(x=>({value:x.code,text:`${x.code} · ${x.name}`})),"Stock location where material will be stored")}{input("Received quantity","received_quantity","number",`Physical quantity received; ${openQuantity||0} currently open`)}</>}
             {active==="post_invoice"&&<>{select("Source purchase order","source_po",availablePos.map(x=>({value:x.document_number,text:`${x.document_number} · ${x.status}`})),"Open PO referenced by the supplier invoice")}{input("Supplier invoice value","invoice_value","number","Total amount claimed by the supplier")}</>}
           </div>
         </section>
 
         <section className={styles.section}>
           <div className={styles.sectionHeader}><strong>Item overview</strong><span>Line 10 · Material item</span></div>
-          <div className={styles.itemTableWrap}><table className={styles.itemTable}><thead><tr><th>Item</th><th>Material</th><th>Quantity</th><th>Plant / Location</th><th>Source</th><th>Status</th></tr></thead><tbody><tr><td>10</td><td>{itemMaterial}</td><td>{itemQty}</td><td>{values.plant||values.storage_location||String(sourceDoc?.header.plant??"—")}</td><td>{sourceDoc?.document_number??"—"}</td><td className={styles.mutedCell}>{ready?"Ready":"Incomplete"}</td></tr></tbody></table></div>
+          <div className={styles.itemTableWrap}><table className={styles.itemTable}><thead><tr><th>Item</th><th>Material</th><th>Quantity</th><th>Plant / Location</th><th>Source</th><th>Status</th></tr></thead><tbody><tr><td>10</td><td>{itemMaterial}</td><td>{itemQty}</td><td>{values.plant||values.storage_location||String(sourceDoc?.header.plant??"—")}</td><td>{sourceDoc?.document_number??"—"}</td><td className={styles.mutedCell}>{active==="post_gr"&&sourceDoc?`${sourceDoc.status} · ${openQuantity} open`:ready?"Ready":"Incomplete"}</td></tr></tbody></table></div>
         </section>
 
         {message&&<div className={`${styles.statusCallout} ${lastSuccess?styles.success:styles.warning}`}><span className={styles.statusIcon}>{lastSuccess?"✓":"!"}</span><span>{message}</span></div>}
