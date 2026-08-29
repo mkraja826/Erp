@@ -22,6 +22,17 @@ const modeCopy:Record<SimulationMode,{label:string;summary:string}>={
   assisted:{label:"Assisted",summary:"Business context remains, but step-by-step prompts are reduced."},
   workplace:{label:"Workplace",summary:"Operate independently with normal ERP validation only."},
 };
+const recoveryCopy:Record<Action,string>={
+  create_pr:"Review the material, plant and requested quantity, correct the invalid business value, then post the requisition again.",
+  create_po:"Check the source requisition, vendor, purchasing organization and price. Correct the invalid value before creating the purchase order.",
+  post_gr:"Check the source PO, posting/document dates, storage location and remaining open quantity before reposting the goods receipt.",
+  post_invoice:"Check the source PO, supplier invoice identity, dates and invoice value. Correct the exception before verifying the invoice again.",
+};
+function businessError(raw:string,action:Action,mode:SimulationMode){
+  if(mode==="workplace")return `Error · ${raw}`;
+  if(mode==="assisted")return `Error · ${raw} · Review the ${labels[action].transaction.toLowerCase()} data and retry.`;
+  return `Error · ${raw} · ${recoveryCopy[action]}`;
+}
 
 export default function ProcurementFlowPage(){
   const [flow,setFlow]=useState<FlowData|null>(null);
@@ -64,7 +75,7 @@ export default function ProcurementFlowPage(){
   const enteredInvoiceValue=Number(values.invoice_value??0);
   const invoiceVariance=enteredInvoiceValue-receivedValue;
 
-  async function post(){if(!ready)return;setPosting(true);setMessage("");setLastSuccess(false);try{const response=await authenticatedFetch("/api/procurement-flow",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:active,data:values})});if(!response)return;const payload=await response.json();if(!response.ok){setMessage(payload.error??"Unable to post document.");return;}setMessage(`${payload.documentNumber} posted${payload.matchStatus?` · ${payload.matchStatus}`:""}${payload.variance!==undefined?` · variance ${Number(payload.variance).toFixed(2)}`:""}${payload.openQuantity!==undefined?` · open qty ${payload.openQuantity}`:""}.`);setLastSuccess(true);setValues({});await load();if(payload.next)setActive(payload.next);}finally{setPosting(false);}}
+  async function post(){if(!ready)return;setPosting(true);setMessage("");setLastSuccess(false);try{const response=await authenticatedFetch("/api/procurement-flow",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:active,data:values})});if(!response)return;const payload=await response.json();if(!response.ok){setMessage(businessError(payload.error??"Unable to post document.",active,mode));return;}setMessage(`Success · ${payload.documentNumber} posted${payload.matchStatus?` · ${payload.matchStatus}`:""}${payload.variance!==undefined?` · variance ${Number(payload.variance).toFixed(2)}`:""}${payload.openQuantity!==undefined?` · open qty ${payload.openQuantity}`:""}.`);setLastSuccess(true);setValues({});await load();if(payload.next)setActive(payload.next);}finally{setPosting(false);}}
 
   const showFieldHints=mode==="guided";
   function select(label:string,key:string,options:Array<{value:string;text:string}>,hint:string){return <label className={styles.field}><span className={styles.fieldLabel}>{label}<b className={styles.required}>*</b></span><select value={values[key]??""} onChange={e=>{setValues(v=>({...v,[key]:e.target.value}));setLastSuccess(false);setMessage("");}}><option value="">Select value…</option>{options.map(o=><option value={o.value} key={o.value}>{o.text}</option>)}</select>{showFieldHints&&<small className={styles.fieldHint}>{hint}</small>}</label>}
@@ -117,9 +128,9 @@ export default function ProcurementFlowPage(){
           <div className={styles.itemTableWrap}><table className={styles.itemTable}><thead>{active==="post_invoice"?<tr><th>Reference</th><th>Quantity</th><th>Unit price</th><th>Value</th><th>Status</th></tr>:<tr><th>Item</th><th>Material</th><th>Quantity</th><th>Plant / Location</th><th>Source</th><th>Status</th></tr>}</thead><tbody>{active==="post_invoice"?<><tr><td>Purchase order</td><td>{orderedQuantity}</td><td>{unitPrice.toFixed(2)}</td><td>{poValue.toFixed(2)}</td><td>{sourceDoc?.status??"—"}</td></tr><tr><td>Goods received</td><td>{previouslyReceived}</td><td>{unitPrice.toFixed(2)}</td><td>{receivedValue.toFixed(2)}</td><td>{previouslyReceived>0?"Received":"No receipt"}</td></tr><tr><td>Supplier invoice</td><td>—</td><td>—</td><td>{enteredInvoiceValue?enteredInvoiceValue.toFixed(2):"—"}</td><td>{!enteredInvoiceValue?"Enter amount":Math.abs(invoiceVariance)<0.01?"Matched":"Variance"}</td></tr></>:<tr><td>10</td><td>{itemMaterial}</td><td>{itemQty}</td><td>{values.plant||values.storage_location||String(sourceDoc?.header.plant??"—")}</td><td>{sourceDoc?.document_number??"—"}</td><td className={styles.mutedCell}>{active==="post_gr"&&sourceDoc?`${sourceDoc.status} · ${openQuantity} open`:ready?"Ready":"Incomplete"}</td></tr>}</tbody></table></div>
         </section>
 
-        {message&&<div className={`${styles.statusCallout} ${lastSuccess?styles.success:styles.warning}`}><span className={styles.statusIcon}>{lastSuccess?"✓":"!"}</span><span>{message}</span></div>}
-        {!message&&active==="post_invoice"&&enteredInvoiceValue>0&&Math.abs(invoiceVariance)>=0.01&&<div className={`${styles.statusCallout} ${styles.warning}`}><span className={styles.statusIcon}>!</span><span>Invoice will be blocked: variance {invoiceVariance>0?"+":""}{invoiceVariance.toFixed(2)} against received value.</span></div>}
-        {!message&&mode==="guided"&&<div className={`${styles.statusCallout} ${styles.ready}`}><span className={styles.statusIcon}>i</span><span>Enter the business values above. The document can be posted only when all required fields are complete.</span></div>}
+        {message&&<div className={`${styles.statusCallout} ${lastSuccess?styles.success:styles.warning}`} role={lastSuccess?"status":"alert"} aria-live="polite"><span className={styles.statusIcon}>{lastSuccess?"✓":"!"}</span><span>{message}</span></div>}
+        {!message&&active==="post_invoice"&&enteredInvoiceValue>0&&Math.abs(invoiceVariance)>=0.01&&<div className={`${styles.statusCallout} ${styles.warning}`} role="alert"><span className={styles.statusIcon}>!</span><span>Warning · Invoice will be blocked: variance {invoiceVariance>0?"+":""}{invoiceVariance.toFixed(2)} against received value.</span></div>}
+        {!message&&mode==="guided"&&<div className={`${styles.statusCallout} ${styles.ready}`} role="status"><span className={styles.statusIcon}>i</span><span>Info · Enter the business values above. The document can be posted only when all required fields are complete.</span></div>}
       </div>
     </ErpTrainingShell>
 
