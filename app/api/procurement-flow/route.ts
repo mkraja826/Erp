@@ -61,15 +61,22 @@ export async function POST(request:Request){
   }
 
   if(body.action==="post_invoice"){
-    const sourcePo=String(data.source_po??"").trim(),invoiceValue=Number(data.invoice_value??0);if(!sourcePo||invoiceValue<=0)return NextResponse.json({error:"Source PO and invoice value are required."},{status:400});
+    const sourcePo=String(data.source_po??"").trim(),invoiceValue=Number(data.invoice_value??0),supplierInvoiceNumber=String(data.supplier_invoice_number??"").trim();
+    const invoiceDate=isoDate(data.invoice_date),postingDate=isoDate(data.posting_date);
+    if(!sourcePo||!supplierInvoiceNumber||invoiceValue<=0)return NextResponse.json({error:"Source PO, supplier invoice number and invoice value are required."},{status:400});
+    if(invoiceDate>postingDate)return NextResponse.json({error:"Invoice date cannot be after posting date."},{status:400});
     const po=await findOwnedDocument(user.id,token,sourcePo,"PO");if(!po)return NextResponse.json({error:"Choose a purchase order that belongs to your account."},{status:400});
     if(po.status==="closed")return NextResponse.json({error:"This purchase order is already closed."},{status:400});
+    const vendor=String(po.header.vendor??"");
+    const duplicate=await supabaseRest<ErpDocument[]>(`erp_documents?user_id=eq.${user.id}&document_type=eq.IV&header->>vendor=eq.${encodeURIComponent(vendor)}&header->>supplier_invoice_number=eq.${encodeURIComponent(supplierInvoiceNumber)}&select=id,document_number,status&limit=1`,{},token);
+    if(duplicate.length>0)return NextResponse.json({error:`Supplier invoice ${supplierInvoiceNumber} for vendor ${vendor} has already been entered as ${duplicate[0].document_number}.`},{status:409});
     const receipts=await supabaseRest<ErpDocument[]>(`erp_documents?user_id=eq.${user.id}&document_type=eq.GR&header->>source_po=eq.${encodeURIComponent(sourcePo)}&select=id,items`,{},token);if(receipts.length===0)return NextResponse.json({error:"Post at least one goods receipt before invoice verification."},{status:400});
-    const item=po.items[0]??{},orderedQuantity=Number(item.quantity??0),unitPrice=Number(item.unit_price??0),receivedQuantity=receipts.reduce((sum,row)=>sum+Number(row.items?.[0]?.received_quantity??0),0),expectedValue=receivedQuantity*unitPrice,matchStatus=Math.abs(invoiceValue-expectedValue)<0.01?"matched":"mismatch",number=docNumber("IV");
-    const invoiceStatus=matchStatus==="matched"?"posted":"blocked";
-    await supabaseRest("erp_documents",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify({user_id:user.id,document_type:"IV",document_number:number,status:invoiceStatus,header:{source_po:po.document_number,match_status:matchStatus,expected_value:expectedValue,invoice_value:invoiceValue,ordered_quantity:orderedQuantity,received_quantity:receivedQuantity},items:[]})},token);
+    const item=po.items[0]??{},orderedQuantity=Number(item.quantity??0),unitPrice=Number(item.unit_price??0),poValue=orderedQuantity*unitPrice,receivedQuantity=receipts.reduce((sum,row)=>sum+Number(row.items?.[0]?.received_quantity??0),0),receivedValue=receivedQuantity*unitPrice,expectedValue=receivedValue;
+    const variance=Number((invoiceValue-expectedValue).toFixed(2)),matchStatus=Math.abs(variance)<0.01?"matched":"mismatch",number=docNumber("IV");
+    const invoiceStatus=matchStatus==="matched"?"posted":"blocked",blockReason=matchStatus==="matched"?null:`Invoice variance ${variance>0?"+":""}${variance.toFixed(2)} against received value.`;
+    await supabaseRest("erp_documents",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify({user_id:user.id,document_type:"IV",document_number:number,status:invoiceStatus,header:{source_po:po.document_number,vendor,supplier_invoice_number:supplierInvoiceNumber,invoice_date:invoiceDate,posting_date:postingDate,match_status:matchStatus,po_value:poValue,received_value:receivedValue,expected_value:expectedValue,invoice_value:invoiceValue,variance,block_reason:blockReason,ordered_quantity:orderedQuantity,received_quantity:receivedQuantity,unit_price:unitPrice},items:[]})},token);
     if(matchStatus==="matched"&&receivedQuantity>=orderedQuantity)await updateDocumentStatus(po.id,"closed",token);
-    return NextResponse.json({posted:true,documentNumber:number,status:invoiceStatus,sourceDocument:po.document_number,matchStatus,expectedValue,invoiceValue,poStatus:matchStatus==="matched"&&receivedQuantity>=orderedQuantity?"closed":po.status,complete:matchStatus==="matched"&&receivedQuantity>=orderedQuantity});
+    return NextResponse.json({posted:true,documentNumber:number,status:invoiceStatus,sourceDocument:po.document_number,vendor,supplierInvoiceNumber,invoiceDate,postingDate,matchStatus,poValue,receivedValue,expectedValue,invoiceValue,variance,blockReason,poStatus:matchStatus==="matched"&&receivedQuantity>=orderedQuantity?"closed":po.status,complete:matchStatus==="matched"&&receivedQuantity>=orderedQuantity});
   }
   return NextResponse.json({error:"Unsupported procurement action"},{status:400});
 }
