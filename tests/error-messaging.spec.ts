@@ -29,23 +29,25 @@ test.describe('ERP workplace error messaging', () => {
       await page.getByRole('button', { name: 'Post document' }).click();
     }
 
+    const simulatorAlert = () => page.getByRole('alert').filter({ hasText: 'Error ·' }).first();
+
     await page.goto('/procurement-flow');
     await expect(page.getByRole('button', { name: /Guided/ })).toHaveClass(/active/);
     await fillPurchaseRequisition();
-    const guided = page.getByRole('alert');
+    const guided = simulatorAlert();
     await expect(guided).toContainText('Error · Material is not valid for this plant.');
     await expect(guided).toContainText('Review the material, plant and requested quantity');
 
     await page.getByRole('button', { name: /Assisted/ }).click();
     await fillPurchaseRequisition();
-    const assisted = page.getByRole('alert');
+    const assisted = simulatorAlert();
     await expect(assisted).toContainText('Error · Material is not valid for this plant.');
     await expect(assisted).toContainText('Review the purchase requisition data and retry.');
     await expect(assisted).not.toContainText('Review the material, plant and requested quantity');
 
     await page.getByRole('button', { name: /Workplace/ }).click();
     await fillPurchaseRequisition();
-    const workplace = page.getByRole('alert');
+    const workplace = simulatorAlert();
     await expect(workplace).toHaveText(/Error · Material is not valid for this plant\./);
     await expect(workplace).not.toContainText('Review the purchase requisition data and retry.');
     await expect(workplace).not.toContainText('Review the material, plant and requested quantity');
