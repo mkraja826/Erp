@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getSupabaseUser, supabaseRest } from "../../../lib/supabase";
 
 type ErpDocument={id:string;document_number:string;document_type:string;status:string;header:Record<string,unknown>;items:Array<Record<string,unknown>>;created_at:string};
-type ActionBody={action?:"create_pr"|"create_po"|"post_gr"|"post_invoice";data?:Record<string,unknown>};
+type ActionBody={action?:"create_pr"|"create_po"|"post_gr"|"post_invoice"|"reverse_gr"|"reverse_invoice";data?:Record<string,unknown>};
 type BalanceRow={quantity:number};
 type MasterRow={entity_type:string;code:string;name:string;attributes:Record<string,unknown>|null;is_active:boolean};
 
@@ -11,10 +11,12 @@ function docNumber(prefix:string){return `${prefix}-${Date.now().toString().slic
 function isoDate(value:unknown){const raw=String(value??"").trim();return /^\d{4}-\d{2}-\d{2}$/.test(raw)?raw:new Date().toISOString().slice(0,10);}
 async function documentsForUser(userId:string,token:string){return supabaseRest<ErpDocument[]>(`erp_documents?user_id=eq.${userId}&select=id,document_number,document_type,status,header,items,created_at&order=created_at.asc`,{},token);}
 async function findOwnedDocument(userId:string,token:string,documentNumber:string,type:string){const rows=await supabaseRest<ErpDocument[]>(`erp_documents?user_id=eq.${userId}&document_number=eq.${encodeURIComponent(documentNumber)}&document_type=eq.${type}&select=id,document_number,document_type,status,header,items,created_at&limit=1`,{},token);return rows[0]??null;}
-async function updateDocumentStatus(id:string,status:string,token:string){await supabaseRest(`erp_documents?id=eq.${id}`,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({status})},token);}
+async function updateDocumentStatus(id:string,status:string,token:string,headerPatch?:Record<string,unknown>){const body:Record<string,unknown>={status};if(headerPatch)body.header=headerPatch;await supabaseRest(`erp_documents?id=eq.${id}`,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify(body)},token);}
 async function masterRow(entityType:string,code:string,token:string){const rows=await supabaseRest<MasterRow[]>(`erp_master_data?entity_type=eq.${encodeURIComponent(entityType)}&code=eq.${encodeURIComponent(code)}&is_active=eq.true&select=entity_type,code,name,attributes,is_active&limit=1`,{},token);return rows[0]??null;}
 async function requireMaster(entityType:string,code:string,label:string,token:string){const row=await masterRow(entityType,code,token);if(!row)throw new Error(`${label} ${code} is not an active ERP master-data value.`);return row;}
 function linkedPlant(row:MasterRow){const attrs=row.attributes??{};return String(attrs.plant_code??attrs.plant??"").trim();}
+async function activeReceipts(userId:string,token:string,sourcePo:string){return supabaseRest<ErpDocument[]>(`erp_documents?user_id=eq.${userId}&document_type=eq.GR&status=neq.reversed&header->>source_po=eq.${encodeURIComponent(sourcePo)}&select=id,document_number,status,header,items,created_at`,{},token);}
+async function activeInvoices(userId:string,token:string,sourcePo:string){return supabaseRest<ErpDocument[]>(`erp_documents?user_id=eq.${userId}&document_type=eq.IV&status=neq.reversed&header->>source_po=eq.${encodeURIComponent(sourcePo)}&select=id,document_number,status,header,items,created_at`,{},token);}
 
 export async function GET(request:Request){const token=authToken(request);if(!token)return NextResponse.json({error:"Authentication required"},{status:401});const user=await getSupabaseUser(token);if(!user)return NextResponse.json({error:"Invalid session"},{status:401});const documents=await documentsForUser(user.id,token);return NextResponse.json({documents,stages:{requisition:documents.filter(d=>d.document_type==="PR"),purchaseOrders:documents.filter(d=>d.document_type==="PO"),goodsReceipts:documents.filter(d=>d.document_type==="GR"),invoices:documents.filter(d=>d.document_type==="IV")}});}
 
@@ -57,7 +59,7 @@ export async function POST(request:Request){
       const [materialRow,plantRow,storageRow]=await Promise.all([requireMaster("material",material,"PO material",token),requireMaster("plant",plant,"PO plant",token),requireMaster("storage_location",storageLocation,"Storage location",token)]);
       void materialRow;void plantRow;const storagePlant=linkedPlant(storageRow);if(storagePlant&&storagePlant!==plant)return NextResponse.json({error:`Storage location ${storageLocation} belongs to plant ${storagePlant}, not ${plant}.`},{status:400});
       const orderedQuantity=Number(item.quantity??0);if(receivedQuantity>orderedQuantity)return NextResponse.json({error:"Received quantity cannot exceed the PO quantity in this Level 1 simulator."},{status:400});
-      const existing=await supabaseRest<ErpDocument[]>(`erp_documents?user_id=eq.${user.id}&document_type=eq.GR&header->>source_po=eq.${encodeURIComponent(sourcePo)}&select=id,items`,{},token);
+      const existing=await activeReceipts(user.id,token,sourcePo);
       const alreadyReceived=existing.reduce((sum,row)=>sum+Number(row.items?.[0]?.received_quantity??0),0),openBefore=orderedQuantity-alreadyReceived;
       if(receivedQuantity>openBefore)return NextResponse.json({error:"This receipt would exceed the remaining open PO quantity."},{status:400});
       const totalReceived=alreadyReceived+receivedQuantity,openAfter=orderedQuantity-totalReceived,poStatus=openAfter===0?"fully_received":"partially_received";
@@ -70,6 +72,36 @@ export async function POST(request:Request){
       return NextResponse.json({posted:true,documentNumber:number,status:"posted",sourceDocument:po.document_number,poStatus,orderedQuantity,previouslyReceived:alreadyReceived,receivedQuantity,openQuantity:openAfter,postingDate,documentDate,movementType,inventoryBalance:newBalance,next:"post_invoice"});
     }
 
+    if(body.action==="reverse_gr"){
+      const sourceGr=String(data.source_gr??"").trim();if(!sourceGr)return NextResponse.json({error:"Source goods receipt is required."},{status:400});
+      const gr=await findOwnedDocument(user.id,token,sourceGr,"GR");if(!gr)return NextResponse.json({error:"Choose a goods receipt that belongs to your account."},{status:400});
+      if(gr.status==="reversed")return NextResponse.json({error:`Goods receipt ${gr.document_number} is already reversed.`},{status:400});
+      if(gr.status!=="posted")return NextResponse.json({error:`Goods receipt ${gr.document_number} is ${gr.status} and cannot be reversed.`},{status:400});
+      const sourcePo=String(gr.header.source_po??"");const po=await findOwnedDocument(user.id,token,sourcePo,"PO");if(!po)return NextResponse.json({error:"The source purchase order could not be found."},{status:400});
+      const invoices=await activeInvoices(user.id,token,sourcePo);if(invoices.length>0)return NextResponse.json({error:`Reverse active invoice ${invoices[0].document_number} before reversing goods receipt ${gr.document_number}.`},{status:409});
+      const material=String(gr.items?.[0]?.material??""),quantity=Number(gr.items?.[0]?.received_quantity??0),plant=String(gr.header.plant??po.header.plant??""),storageLocation=String(gr.header.storage_location??"SL01");
+      const balances=await supabaseRest<BalanceRow[]>(`erp_inventory_balances?user_id=eq.${user.id}&material_code=eq.${encodeURIComponent(material)}&plant_code=eq.${encodeURIComponent(plant)}&storage_location_code=eq.${encodeURIComponent(storageLocation)}&select=quantity&limit=1`,{},token);const currentBalance=Number(balances[0]?.quantity??0);
+      if(currentBalance<quantity)return NextResponse.json({error:"Inventory balance is lower than the receipt quantity and cannot be reversed safely."},{status:409});
+      const newBalance=currentBalance-quantity;
+      await supabaseRest("erp_inventory_balances?on_conflict=user_id,material_code,plant_code,storage_location_code",{method:"POST",headers:{Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify({user_id:user.id,material_code:material,plant_code:plant,storage_location_code:storageLocation,quantity:newBalance,updated_at:new Date().toISOString()})},token);
+      await updateDocumentStatus(gr.id,"reversed",token,{...gr.header,reversal_date:new Date().toISOString().slice(0,10),reversal_movement_type:"102"});
+      const remaining=(await activeReceipts(user.id,token,sourcePo)).filter(row=>row.document_number!==gr.document_number);const orderedQuantity=Number(po.items?.[0]?.quantity??0),receivedQuantity=remaining.reduce((sum,row)=>sum+Number(row.items?.[0]?.received_quantity??0),0),openQuantity=Math.max(0,orderedQuantity-receivedQuantity),poStatus=receivedQuantity===0?"open":openQuantity===0?"fully_received":"partially_received";
+      await updateDocumentStatus(po.id,poStatus,token);
+      return NextResponse.json({reversed:true,documentNumber:gr.document_number,status:"reversed",sourceDocument:po.document_number,reversalMovementType:"102",inventoryBalance:newBalance,receivedQuantity,openQuantity,poStatus});
+    }
+
+    if(body.action==="reverse_invoice"){
+      const sourceInvoice=String(data.source_invoice??"").trim();if(!sourceInvoice)return NextResponse.json({error:"Source invoice is required."},{status:400});
+      const invoice=await findOwnedDocument(user.id,token,sourceInvoice,"IV");if(!invoice)return NextResponse.json({error:"Choose an invoice that belongs to your account."},{status:400});
+      if(invoice.status==="reversed")return NextResponse.json({error:`Invoice ${invoice.document_number} is already reversed.`},{status:400});
+      if(!["blocked","posted"].includes(invoice.status))return NextResponse.json({error:`Invoice ${invoice.document_number} is ${invoice.status} and cannot be reversed.`},{status:400});
+      const sourcePo=String(invoice.header.source_po??"");const po=await findOwnedDocument(user.id,token,sourcePo,"PO");if(!po)return NextResponse.json({error:"The source purchase order could not be found."},{status:400});
+      await updateDocumentStatus(invoice.id,"reversed",token,{...invoice.header,reversal_date:new Date().toISOString().slice(0,10)});
+      const receipts=await activeReceipts(user.id,token,sourcePo);const orderedQuantity=Number(po.items?.[0]?.quantity??0),receivedQuantity=receipts.reduce((sum,row)=>sum+Number(row.items?.[0]?.received_quantity??0),0),openQuantity=Math.max(0,orderedQuantity-receivedQuantity),poStatus=receivedQuantity===0?"open":openQuantity===0?"fully_received":"partially_received";
+      if(po.status==="closed")await updateDocumentStatus(po.id,poStatus,token);
+      return NextResponse.json({reversed:true,documentNumber:invoice.document_number,status:"reversed",sourceDocument:po.document_number,poStatus,openQuantity});
+    }
+
     if(body.action==="post_invoice"){
       const sourcePo=String(data.source_po??"").trim(),invoiceValue=Number(data.invoice_value??0),supplierInvoiceNumber=String(data.supplier_invoice_number??"").trim();
       const invoiceDate=isoDate(data.invoice_date),postingDate=isoDate(data.posting_date);
@@ -78,9 +110,10 @@ export async function POST(request:Request){
       const po=await findOwnedDocument(user.id,token,sourcePo,"PO");if(!po)return NextResponse.json({error:"Choose a purchase order that belongs to your account."},{status:400});
       if(po.status==="closed")return NextResponse.json({error:"This purchase order is already closed."},{status:400});
       const vendor=String(po.header.vendor??"");await requireMaster("vendor",vendor,"PO vendor",token);
+      const active=await activeInvoices(user.id,token,sourcePo);const blocked=active.find(row=>row.status==="blocked");if(blocked)return NextResponse.json({error:`Blocked invoice ${blocked.document_number} must be reversed before another invoice can be entered for ${po.document_number}.`},{status:409});
       const duplicate=await supabaseRest<ErpDocument[]>(`erp_documents?user_id=eq.${user.id}&document_type=eq.IV&header->>vendor=eq.${encodeURIComponent(vendor)}&header->>supplier_invoice_number=eq.${encodeURIComponent(supplierInvoiceNumber)}&select=id,document_number,status&limit=1`,{},token);
       if(duplicate.length>0)return NextResponse.json({error:`Supplier invoice ${supplierInvoiceNumber} for vendor ${vendor} has already been entered as ${duplicate[0].document_number}.`},{status:409});
-      const receipts=await supabaseRest<ErpDocument[]>(`erp_documents?user_id=eq.${user.id}&document_type=eq.GR&header->>source_po=eq.${encodeURIComponent(sourcePo)}&select=id,items`,{},token);if(receipts.length===0)return NextResponse.json({error:"Post at least one goods receipt before invoice verification."},{status:400});
+      const receipts=await activeReceipts(user.id,token,sourcePo);if(receipts.length===0)return NextResponse.json({error:"Post at least one goods receipt before invoice verification."},{status:400});
       const item=po.items[0]??{},orderedQuantity=Number(item.quantity??0),unitPrice=Number(item.unit_price??0),poValue=orderedQuantity*unitPrice,receivedQuantity=receipts.reduce((sum,row)=>sum+Number(row.items?.[0]?.received_quantity??0),0),receivedValue=receivedQuantity*unitPrice,expectedValue=receivedValue;
       const variance=Number((invoiceValue-expectedValue).toFixed(2)),matchStatus=Math.abs(variance)<0.01?"matched":"mismatch",number=docNumber("IV");
       const invoiceStatus=matchStatus==="matched"?"posted":"blocked",blockReason=matchStatus==="matched"?null:`Invoice variance ${variance>0?"+":""}${variance.toFixed(2)} against received value.`;
