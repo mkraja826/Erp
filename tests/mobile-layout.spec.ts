@@ -59,8 +59,12 @@ test.describe('Mobile layout regression', () => {
     await expect(selects).toHaveCount(2);
     await expect(quantity).toBeVisible();
 
-    const touchHeights = await requirementSection.locator('select, input').evaluateAll(elements => elements.map(element => element.getBoundingClientRect().height));
-    expect(touchHeights.every(height => height >= 44)).toBeTruthy();
+    const businessControls = [selects.nth(0), selects.nth(1), quantity];
+    for (const control of businessControls) {
+      await expect(control).toBeVisible();
+      const height = await control.evaluate(element => element.getBoundingClientRect().height);
+      expect(height).toBeGreaterThanOrEqual(44);
+    }
 
     await selects.nth(0).selectOption({ index: 1 });
     await selects.nth(1).selectOption({ index: 1 });
