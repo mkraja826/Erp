@@ -16,19 +16,24 @@ test.describe('Procurement simulation modes', () => {
     await signIn(page);
     await page.goto('/procurement-flow');
 
-    await expect(page.getByText("What you're learning")).toBeVisible();
+    const guided = page.getByRole('button', { name: /Guided/ }).first();
+    const assisted = page.getByRole('button', { name: /Assisted/ }).first();
+    const workplace = page.getByRole('button', { name: /Workplace/ }).first();
+
+    await expect(guided).toBeVisible();
+    await expect(page.locator('[data-simulation-mode="guided"]')).toHaveCount(1);
+    await expect(page.getByText("What you're learning").first()).toBeVisible();
     await expect(page.getByText('Material master item to be requested')).toBeVisible();
-    await expect(page.getByText('Guided Simulation').last()).toBeVisible();
 
-    await page.getByRole('button', { name: /Assisted/ }).first().click();
-    await expect(page.getByText("What you're learning")).toBeVisible();
+    await assisted.click();
+    await expect(page.locator('[data-simulation-mode="assisted"]')).toHaveCount(1);
+    await expect(page.getByText("What you're learning").first()).toBeVisible();
     await expect(page.getByText('Material master item to be requested')).toHaveCount(0);
-    await expect(page.getByText('Assisted Simulation').last()).toBeVisible();
 
-    await page.getByRole('button', { name: /Workplace/ }).first().click();
+    await workplace.click();
+    await expect(page.locator('[data-simulation-mode="workplace"]')).toHaveCount(1);
     await expect(page.getByText("What you're learning")).toHaveCount(0);
     await expect(page.getByText('Capture an internal material requirement before a supplier order is created.')).toHaveCount(0);
-    await expect(page.getByText('Workplace Simulation').last()).toBeVisible();
     await expect(page.getByRole('button', { name: 'Post document' })).toBeVisible();
   });
 });
