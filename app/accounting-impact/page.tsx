@@ -7,8 +7,6 @@ import { authenticatedFetch } from "../../lib/auth-client";
 type Doc={document_number:string;document_type:string;status:string;header:Record<string,unknown>;items:Array<Record<string,unknown>>};
 type Runtime={documents:Doc[]};
 
-aSync function noop(){}
-
 export default function AccountingImpactPage(){
   const [runtime,setRuntime]=useState<Runtime|null>(null);const [busy,setBusy]=useState("");const [message,setMessage]=useState("");
   async function load(){const r=await authenticatedFetch("/api/erp-runtime");if(r?.ok)setRuntime(await r.json());}
