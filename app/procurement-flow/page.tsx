@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import ErpTrainingShell from "../../components/ErpTrainingShell";
+import ErpTrainingShell, { type SimulationMode } from "../../components/ErpTrainingShell";
 import { authenticatedFetch } from "../../lib/auth-client";
 import styles from "./ProcurementFlow.module.css";
 
@@ -17,11 +17,17 @@ const labels:Record<Action,{title:string;transaction:string;type:string;descript
   post_gr:{title:"Post Goods Receipt",transaction:"Goods Receipt",type:"GR",description:"Record the material quantity that physically arrived against the purchase order."},
   post_invoice:{title:"Verify Supplier Invoice",transaction:"Invoice Verification",type:"IV",description:"Compare the supplier invoice with the purchase order and received quantity before posting."},
 };
+const modeCopy:Record<SimulationMode,{label:string;summary:string}>={
+  guided:{label:"Guided",summary:"Full step-by-step coaching and field guidance."},
+  assisted:{label:"Assisted",summary:"Business context remains, but step-by-step prompts are reduced."},
+  workplace:{label:"Workplace",summary:"Operate independently with normal ERP validation only."},
+};
 
 export default function ProcurementFlowPage(){
   const [flow,setFlow]=useState<FlowData|null>(null);
   const [runtime,setRuntime]=useState<Runtime|null>(null);
   const [active,setActive]=useState<Action>("create_pr");
+  const [mode,setMode]=useState<SimulationMode>("guided");
   const [values,setValues]=useState<Record<string,string>>({});
   const [message,setMessage]=useState("");
   const [posting,setPosting]=useState(false);
@@ -31,6 +37,8 @@ export default function ProcurementFlowPage(){
   async function load(){const [a,b]=await Promise.all([authenticatedFetch("/api/procurement-flow"),authenticatedFetch("/api/erp-runtime")]);if(!a||!b)return;setFlow(await a.json());setRuntime(await b.json());}
   const master=(type:string)=>runtime?.masterData.filter(x=>x.entity_type===type)??[];
   const prs=flow?.stages.requisition??[];const pos=flow?.stages.purchaseOrders??[];const grs=flow?.stages.goodsReceipts??[];const ivs=flow?.stages.invoices??[];
+  const availablePrs=prs.filter(x=>x.status==="open"||x.status==="posted");
+  const availablePos=pos.filter(x=>x.status!=="closed");
   const steps=useMemo(()=>[
     {key:"create_pr" as Action,label:"1. Requisition",done:prs.length>0},
     {key:"create_po" as Action,label:"2. Purchase Order",done:pos.length>0},
@@ -44,23 +52,28 @@ export default function ProcurementFlowPage(){
 
   async function post(){if(!ready)return;setPosting(true);setMessage("");setLastSuccess(false);try{const response=await authenticatedFetch("/api/procurement-flow",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:active,data:values})});if(!response)return;const payload=await response.json();if(!response.ok){setMessage(payload.error??"Unable to post document.");return;}setMessage(`${payload.documentNumber} posted${payload.matchStatus?` · ${payload.matchStatus}`:""}.`);setLastSuccess(true);setValues({});await load();if(payload.next)setActive(payload.next);}finally{setPosting(false);}}
 
-  function select(label:string,key:string,options:Array<{value:string;text:string}>,hint:string){return <label className={styles.field}><span className={styles.fieldLabel}>{label}<b className={styles.required}>*</b></span><select value={values[key]??""} onChange={e=>{setValues(v=>({...v,[key]:e.target.value}));setLastSuccess(false);setMessage("");}}><option value="">Select value…</option>{options.map(o=><option value={o.value} key={o.value}>{o.text}</option>)}</select><small className={styles.fieldHint}>{hint}</small></label>}
-  function input(label:string,key:string,type="text",hint="Required business value"){return <label className={styles.field}><span className={styles.fieldLabel}>{label}<b className={styles.required}>*</b></span><input type={type} min={type==="number"?0:undefined} value={values[key]??""} onChange={e=>{setValues(v=>({...v,[key]:e.target.value}));setLastSuccess(false);setMessage("");}}/><small className={styles.fieldHint}>{hint}</small></label>}
+  const showFieldHints=mode==="guided";
+  function select(label:string,key:string,options:Array<{value:string;text:string}>,hint:string){return <label className={styles.field}><span className={styles.fieldLabel}>{label}<b className={styles.required}>*</b></span><select value={values[key]??""} onChange={e=>{setValues(v=>({...v,[key]:e.target.value}));setLastSuccess(false);setMessage("");}}><option value="">Select value…</option>{options.map(o=><option value={o.value} key={o.value}>{o.text}</option>)}</select>{showFieldHints&&<small className={styles.fieldHint}>{hint}</small>}</label>}
+  function input(label:string,key:string,type="text",hint="Required business value"){return <label className={styles.field}><span className={styles.fieldLabel}>{label}<b className={styles.required}>*</b></span><input type={type} min={type==="number"?0:undefined} value={values[key]??""} onChange={e=>{setValues(v=>({...v,[key]:e.target.value}));setLastSuccess(false);setMessage("");}}/>{showFieldHints&&<small className={styles.fieldHint}>{hint}</small>}</label>}
 
   const current=labels[active];
   const shellStatus=posting?"checking":lastSuccess?"success":message?"warning":"ready";
-  const itemMaterial=values.material||String(sourceDoc?.header.material??"—");
-  const itemQty=values.quantity||values.received_quantity||String(sourceDoc?.header.quantity??"—");
+  const itemMaterial=values.material||String(sourceDoc?.items?.[0]?.material??"—");
+  const itemQty=values.quantity||values.received_quantity||String(sourceDoc?.items?.[0]?.quantity??"—");
+  const actionPrompt=mode==="guided"?(ready?"Required fields complete — document is ready for posting.":"Complete all required fields marked with *."):mode==="assisted"?(ready?"Ready to post.":"Complete required business data."):"";
 
   return <main className="dashboardPage">
     <header className="dashboardTopbar"><Link className="brandLink" href="/dashboard">ERP Edu · Procure-to-Pay</Link><Link href="/dashboard" className="secondaryButton">Dashboard</Link></header>
     <section className="dashboardHero"><div><span className="eyebrow">Enterprise process simulation</span><h1>Run a complete procure-to-pay cycle.</h1><p>Work through connected business documents in the same order an MM user would handle them in a company.</p></div></section>
 
+    <div className="flowStepper" aria-label="Simulation mode">{(["guided","assisted","workplace"] as SimulationMode[]).map(x=><button key={x} className={mode===x?"active":""} onClick={()=>{setMode(x);setMessage("");setLastSuccess(false);}}><span>{mode===x?"●":"○"}</span>{modeCopy[x].label}</button>)}</div>
+    <p style={{margin:"-6px 0 18px",fontSize:12,color:"#667085"}}>{modeCopy[mode].summary}</p>
+
     <div className="flowStepper">{steps.map(step=><button key={step.key} className={`${active===step.key?"active":""} ${step.done?"done":""}`} onClick={()=>{setActive(step.key);setValues({});setMessage("");setLastSuccess(false);}}><span>{step.done?"✓":"○"}</span>{step.label}</button>)}</div>
 
-    <ErpTrainingShell title={current.title} transactionLabel={current.transaction} modeLabel="MM Operations Client" status={shellStatus} actions={<><span className={styles.actionHelp}>{ready?"Required fields complete — document is ready for posting.":"Complete all required fields marked with *."}</span><button className={styles.postButton} onClick={post} disabled={posting||!ready}>{posting?"Posting document…":active==="post_invoice"?"Verify & Post":"Post document"}</button></>}>
+    <ErpTrainingShell title={current.title} transactionLabel={current.transaction} modeLabel="MM Operations Client" simulationMode={mode} status={shellStatus} actions={<>{actionPrompt&&<span className={styles.actionHelp}>{actionPrompt}</span>}<button className={styles.postButton} onClick={post} disabled={posting||!ready}>{posting?"Posting document…":active==="post_invoice"?"Verify & Post":"Post document"}</button></>}>
       <div className={styles.transactionWorkspace}>
-        <div className={styles.documentIntro}><div><h3>{current.title}</h3><p>{current.description}</p></div><span className={styles.documentType}>MM · {current.type}</span></div>
+        <div className={styles.documentIntro}><div><h3>{current.title}</h3>{mode!=="workplace"&&<p>{current.description}</p>}</div><span className={styles.documentType}>MM · {current.type}</span></div>
 
         <div className={styles.contextStrip}>
           <div className={styles.contextItem}><span>Company code</span><strong>1000 · Training Enterprise</strong></div>
@@ -73,9 +86,9 @@ export default function ProcurementFlowPage(){
           <div className={styles.sectionHeader}><strong>{active==="create_pr"?"Requirement data":active==="create_po"?"Purchasing header":active==="post_gr"?"Receipt header":"Invoice header"}</strong><span>* Required fields</span></div>
           <div className={styles.fields}>
             {active==="create_pr"&&<>{select("Material","material",master("material").map(x=>({value:x.code,text:`${x.code} · ${x.name}`})),"Material master item to be requested")}{select("Plant","plant",master("plant").map(x=>({value:x.code,text:`${x.code} · ${x.name}`})),"Business location that requires the material")}{input("Requested quantity","quantity","number","Quantity requested by the business")}</>}
-            {active==="create_po"&&<>{select("Source purchase requisition","source_pr",prs.map(x=>({value:x.document_number,text:x.document_number})),"Approved internal requirement")}{select("Vendor","vendor",master("vendor").map(x=>({value:x.code,text:`${x.code} · ${x.name}`})),"Approved supplier")}{select("Purchasing organization","purchasing_organization",master("purchasing_organization").map(x=>({value:x.code,text:`${x.code} · ${x.name}`})),"Buying organization responsible for the PO")}{input("Unit price","unit_price","number","Agreed supplier price per unit")}</>}
-            {active==="post_gr"&&<>{select("Source purchase order","source_po",pos.map(x=>({value:x.document_number,text:x.document_number})),"PO being received")}{select("Storage location","storage_location",master("storage_location").map(x=>({value:x.code,text:`${x.code} · ${x.name}`})),"Stock location where material will be stored")}{input("Received quantity","received_quantity","number","Physical quantity received today")}</>}
-            {active==="post_invoice"&&<>{select("Source purchase order","source_po",pos.map(x=>({value:x.document_number,text:x.document_number})),"PO referenced by the supplier invoice")}{input("Supplier invoice value","invoice_value","number","Total amount claimed by the supplier")}</>}
+            {active==="create_po"&&<>{select("Source purchase requisition","source_pr",availablePrs.map(x=>({value:x.document_number,text:`${x.document_number} · ${x.status}`})),"Open internal requirement")}{select("Vendor","vendor",master("vendor").map(x=>({value:x.code,text:`${x.code} · ${x.name}`})),"Approved supplier")}{select("Purchasing organization","purchasing_organization",master("purchasing_organization").map(x=>({value:x.code,text:`${x.code} · ${x.name}`})),"Buying organization responsible for the PO")}{input("Unit price","unit_price","number","Agreed supplier price per unit")}</>}
+            {active==="post_gr"&&<>{select("Source purchase order","source_po",availablePos.map(x=>({value:x.document_number,text:`${x.document_number} · ${x.status}`})),"Open PO being received")}{select("Storage location","storage_location",master("storage_location").map(x=>({value:x.code,text:`${x.code} · ${x.name}`})),"Stock location where material will be stored")}{input("Received quantity","received_quantity","number","Physical quantity received today")}</>}
+            {active==="post_invoice"&&<>{select("Source purchase order","source_po",availablePos.map(x=>({value:x.document_number,text:`${x.document_number} · ${x.status}`})),"Open PO referenced by the supplier invoice")}{input("Supplier invoice value","invoice_value","number","Total amount claimed by the supplier")}</>}
           </div>
         </section>
 
@@ -85,7 +98,7 @@ export default function ProcurementFlowPage(){
         </section>
 
         {message&&<div className={`${styles.statusCallout} ${lastSuccess?styles.success:styles.warning}`}><span className={styles.statusIcon}>{lastSuccess?"✓":"!"}</span><span>{message}</span></div>}
-        {!message&&<div className={`${styles.statusCallout} ${styles.ready}`}><span className={styles.statusIcon}>i</span><span>Enter the business values above. The document can be posted only when all required fields are complete.</span></div>}
+        {!message&&mode==="guided"&&<div className={`${styles.statusCallout} ${styles.ready}`}><span className={styles.statusIcon}>i</span><span>Enter the business values above. The document can be posted only when all required fields are complete.</span></div>}
       </div>
     </ErpTrainingShell>
 
