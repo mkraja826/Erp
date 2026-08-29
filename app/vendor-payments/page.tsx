@@ -1,0 +1,27 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import { authenticatedFetch } from "../../lib/auth-client";
+
+type Doc={document_number:string;document_type:string;status:string;header:Record<string,unknown>;items:Array<Record<string,unknown>>};
+type Runtime={documents:Doc[]};
+
+export default function VendorPaymentsPage(){
+  const [runtime,setRuntime]=useState<Runtime|null>(null);const [busy,setBusy]=useState("");const [message,setMessage]=useState("");
+  async function load(){const r=await authenticatedFetch("/api/erp-runtime");if(r?.ok)setRuntime(await r.json());}
+  useEffect(()=>{void load();},[]);
+  const docs=runtime?.documents??[];
+  const invoiceFis=useMemo(()=>docs.filter(d=>d.document_type==="FI"&&d.status==="posted"&&String(d.header.source_type??"")==="IV"),[docs]);
+  const payments=useMemo(()=>docs.filter(d=>d.document_type==="PAY"),[docs]);
+  function payable(fi:Doc){return fi.items.filter(x=>String(x.account??"")==="300000").reduce((sum,x)=>sum+Number(x.credit??0)-Number(x.debit??0),0);}
+  async function postPayment(fi:Doc){setBusy(fi.document_number);setMessage("");try{const r=await authenticatedFetch("/api/vendor-payment",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"post_payment",data:{invoice_fi:fi.document_number,payment_amount:payable(fi),payment_date:new Date().toISOString().slice(0,10),bank_reference:`BANK-${Date.now()}`}})});const p=r?await r.json():{};setMessage(r?.ok?`Success · payment ${p.documentNumber} cleared ${p.clearedFi}.`:`Error · ${p.error??"Unable to post payment."}`);if(r?.ok)await load();}finally{setBusy("");}}
+  async function reversePayment(payment:Doc){setBusy(payment.document_number);setMessage("");try{const r=await authenticatedFetch("/api/vendor-payment",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"reverse_payment",data:{payment_document:payment.document_number}})});const p=r?await r.json():{};setMessage(r?.ok?`Success · ${payment.document_number} reversed; ${p.reopenedFi} is open again.`:`Error · ${p.error??"Unable to reverse payment."}`);if(r?.ok)await load();}finally{setBusy("");}}
+  return <main style={{minHeight:"100vh",background:"#f6f8fb",padding:"20px",color:"#172033"}}><div style={{maxWidth:1100,margin:"0 auto"}}>
+    <header style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",marginBottom:18}}><Link href="/accounting-impact">← Accounting impact</Link><strong>ERP Edu · Vendor Payment & Clearing</strong><Link href="/dashboard">Dashboard</Link></header>
+    <section style={{background:"white",border:"1px solid #e4e7ec",borderRadius:16,padding:22,marginBottom:18}}><span style={{fontSize:12,fontWeight:700,color:"#667085"}}>PHASE 4E · FINANCIAL CLOSE</span><h1 style={{margin:"8px 0"}}>Clear vendor open items with payment.</h1><p style={{margin:0,color:"#667085"}}>Post a bank payment against an invoice FI document, see the vendor payable clear, and reverse the payment to reopen the item while preserving the audit trail.</p></section>
+    <section style={{background:"white",border:"1px solid #e4e7ec",borderRadius:16,padding:18,marginBottom:18}}><h2>Vendor open items</h2><div style={{overflowX:"auto"}}><table style={{width:"100%",minWidth:760,borderCollapse:"collapse"}}><thead><tr><th align="left">Invoice FI</th><th align="left">Source invoice</th><th align="left">Currency</th><th align="right">Vendor amount</th><th align="left">Clearing</th><th></th></tr></thead><tbody>{invoiceFis.map(fi=>{const clearing=String(fi.header.clearing_status??"open");return <tr key={fi.document_number}><td style={{padding:"10px 6px",borderTop:"1px solid #eee"}}>{fi.document_number}</td><td style={{padding:"10px 6px",borderTop:"1px solid #eee"}}>{String(fi.header.source_document??"")}</td><td style={{padding:"10px 6px",borderTop:"1px solid #eee"}}>{String(fi.header.currency??"INR")}</td><td align="right" style={{padding:"10px 6px",borderTop:"1px solid #eee"}}>{payable(fi).toFixed(2)}</td><td style={{padding:"10px 6px",borderTop:"1px solid #eee"}}>{clearing}</td><td style={{padding:"10px 6px",borderTop:"1px solid #eee"}}><button style={{minHeight:44,padding:"0 14px"}} disabled={busy===fi.document_number||clearing==="cleared"} onClick={()=>postPayment(fi)}>{clearing==="cleared"?"Cleared":"Pay & clear"}</button></td></tr>})}</tbody></table></div>{invoiceFis.length===0&&<p>No posted invoice FI documents are available yet.</p>}</section>
+    <section style={{background:"white",border:"1px solid #e4e7ec",borderRadius:16,padding:18}}><h2>Payment history</h2>{payments.map(p=><article key={p.document_number} style={{border:"1px solid #e4e7ec",borderRadius:12,padding:14,marginBottom:12,display:"flex",justifyContent:"space-between",gap:12,flexWrap:"wrap"}}><div><strong>{p.document_number}</strong> · {p.status}<div style={{fontSize:13,color:"#667085"}}>Clears {String(p.header.cleared_fi??"")} · {String(p.header.currency??"INR")} {Number(p.header.payment_amount??0).toFixed(2)} · {String(p.header.bank_reference??"")}</div></div>{p.status==="posted"&&<button style={{minHeight:40}} disabled={busy===p.document_number} onClick={()=>reversePayment(p)}>Reverse payment</button>}</article>)}{payments.length===0&&<p>No vendor payments posted yet.</p>}</section>
+    {message&&<div role={message.startsWith("Error")?"alert":"status"} style={{marginTop:12,padding:14,borderRadius:10,background:message.startsWith("Error")?"#fef3f2":"#ecfdf3"}}>{message}</div>}
+  </div></main>;
+}

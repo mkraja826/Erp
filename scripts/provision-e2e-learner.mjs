@@ -88,6 +88,11 @@ async function resetLearnerLearning(userId) {
   await restRequest(`enrollments?user_id=eq.${userId}`, { method: 'DELETE' });
 }
 
+async function resetLearnerErpState(userId) {
+  await restRequest(`erp_documents?user_id=eq.${userId}`, { method: 'DELETE' });
+  await restRequest(`erp_inventory_balances?user_id=eq.${userId}`, { method: 'DELETE' });
+}
+
 async function seedCourseComplete(userId, courseId, lessons, completedAt) {
   await restRequest('lesson_progress?on_conflict=user_id,lesson_id', {
     method: 'POST',
@@ -116,7 +121,8 @@ async function seedCourseComplete(userId, courseId, lessons, completedAt) {
 
 const learnerUserId = await ensureUser(email, 'ERP Edu E2E Learner', 'ci-e2e');
 await resetLearnerLearning(learnerUserId);
-console.log('E2E learner refreshed, confirmed, and reset to a clean learning state.');
+await resetLearnerErpState(learnerUserId);
+console.log('E2E learner refreshed, confirmed, and reset to clean learning + ERP simulator state.');
 
 const foundation = await loadCourse('sap-foundations');
 const mm = await loadCourse('sap-mm-level-1');
