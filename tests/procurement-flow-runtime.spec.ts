@@ -73,12 +73,12 @@ test.describe('Procure-to-pay simulator runtime', () => {
 
     await page.goto(`/documents/${encodeURIComponent(result.po.documentNumber)}`);
     await expect(page.getByText('End-to-end document flow')).toBeVisible();
-    await expect(page.getByText(result.pr.documentNumber)).toBeVisible();
-    await expect(page.getByText(result.po.documentNumber)).toBeVisible();
-    await expect(page.getByText(result.gr1.documentNumber)).toBeVisible();
-    await expect(page.getByText(result.gr2.documentNumber)).toBeVisible();
-    await expect(page.getByText(result.mismatch.documentNumber)).toBeVisible();
-    await expect(page.getByText(result.matched.documentNumber)).toBeVisible();
+    await expect(page.getByRole('link', { name: new RegExp(result.pr.documentNumber) })).toBeVisible();
+    await expect(page.getByRole('link', { name: new RegExp(result.gr1.documentNumber) })).toBeVisible();
+    await expect(page.getByRole('link', { name: new RegExp(result.gr2.documentNumber) })).toBeVisible();
+    await expect(page.getByRole('link', { name: new RegExp(result.mismatch.documentNumber) })).toBeVisible();
+    await expect(page.getByRole('link', { name: new RegExp(result.matched.documentNumber) })).toBeVisible();
+    await expect(page.getByRole('heading', { name: result.po.documentNumber })).toBeVisible();
     await expect(page.getByText(/Goods-receipt stock impact/i)).toBeVisible();
     await expect(page.getByText(/current stock/i).first()).toBeVisible();
   });
