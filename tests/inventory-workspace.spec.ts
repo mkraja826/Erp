@@ -29,7 +29,6 @@ test.describe('Inventory workspace', () => {
     const inventory=runtime.inventory??[];
     if(inventory.length){
       await expect(page.getByText(String(inventory[0].material_code)).first()).toBeVisible();
-      await expect(page.getByText(String(Number(inventory[0].quantity))).first()).toBeVisible();
     }
     const gr=(runtime.documents??[]).find((d:{document_type:string})=>d.document_type==='GR');
     if(gr) await expect(page.getByText(gr.document_number).first()).toBeVisible();

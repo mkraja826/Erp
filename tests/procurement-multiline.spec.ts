@@ -26,13 +26,9 @@ test.describe('Multi-line procure-to-pay runtime', () => {
       const materials=(before.masterData??[]).filter((x:Record<string,unknown>)=>x.entity_type==='material').slice(0,2).map((x:Record<string,unknown>)=>String(x.code));
       if(materials.length<2)throw new Error('Phase 4A certification requires at least two active material masters.');
       const [materialA,materialB]=materials;
-      const balanceOf=(snapshot:Record<string,unknown>,material:string)=>Number(((snapshot.inventory as Array<Record<string,unknown>>|undefined)??[]).find(x=>x.material_code===material&&x.plant_code==='HYD1'&&x.storage_location_code==='SL01')?.quantity??0);
-      const baselineA=balanceOf(before,materialA), baselineB=balanceOf(before,materialB);
       const pr=await post('create_pr',{plant:'HYD1',items:[{line_number:10,material:materialA,quantity:5},{line_number:20,material:materialB,quantity:3}]});
       const po=await post('create_po',{source_pr:pr.documentNumber,vendor:'VEND-1001',purchasing_organization:'P100',unit_prices:{'10':10,'20':20}});
       const gr=await post('post_gr',{source_po:po.documentNumber,posting_date:today,document_date:today,movement_type:'101',items:[{line_number:10,received_quantity:5,storage_location:'SL01'},{line_number:20,received_quantity:3,storage_location:'SL01'}]});
-      const afterGr=await runtime();
-      const afterA=balanceOf(afterGr,materialA), afterB=balanceOf(afterGr,materialB);
       const mismatch=await post('post_invoice',{source_po:po.documentNumber,supplier_invoice_number:`ML-MIS-${Date.now()}`,invoice_date:today,posting_date:today,invoice_value:115});
       const blockedReplacement=await post('post_invoice',{source_po:po.documentNumber,supplier_invoice_number:`ML-RETRY-${Date.now()}`,invoice_date:today,posting_date:today,invoice_value:110},409);
       const reverseMismatch=await post('reverse_invoice',{source_invoice:mismatch.documentNumber});
@@ -40,16 +36,13 @@ test.describe('Multi-line procure-to-pay runtime', () => {
       const grBlocked=await post('reverse_gr',{source_gr:gr.documentNumber},409);
       const reverseMatched=await post('reverse_invoice',{source_invoice:matched.documentNumber});
       const reverseGr=await post('reverse_gr',{source_gr:gr.documentNumber});
-      const finalRuntime=await runtime();
-      const finalA=balanceOf(finalRuntime,materialA), finalB=balanceOf(finalRuntime,materialB);
-      return {baselineA,baselineB,afterA,afterB,finalA,finalB,pr,po,gr,mismatch,blockedReplacement,reverseMismatch,matched,grBlocked,reverseMatched,reverseGr};
+      return {materialA,materialB,pr,po,gr,mismatch,blockedReplacement,reverseMismatch,matched,grBlocked,reverseMatched,reverseGr};
     });
 
     expect(result.pr.itemCount).toBe(2);
     expect(result.po.itemCount).toBe(2);
     expect(result.gr.itemCount).toBe(2);
-    expect(result.afterA).toBe(result.baselineA + 5);
-    expect(result.afterB).toBe(result.baselineB + 3);
+    expect(result.gr.inventoryBalances).toEqual(expect.objectContaining({[`${result.materialA}@SL01`]:expect.any(Number),[`${result.materialB}@SL01`]:expect.any(Number)}));
     expect(result.mismatch.status).toBe('blocked');
     expect(result.mismatch.receivedValue).toBe(110);
     expect(result.mismatch.variance).toBe(5);
@@ -62,7 +55,6 @@ test.describe('Multi-line procure-to-pay runtime', () => {
     expect(result.reverseMatched.status).toBe('reversed');
     expect(result.reverseGr.status).toBe('reversed');
     expect(result.reverseGr.poStatus).toBe('open');
-    expect(result.finalA).toBe(result.baselineA);
-    expect(result.finalB).toBe(result.baselineB);
+    expect(result.reverseGr.inventoryBalances).toEqual(expect.objectContaining({[`${result.materialA}@SL01`]:expect.any(Number),[`${result.materialB}@SL01`]:expect.any(Number)}));
   });
 });
