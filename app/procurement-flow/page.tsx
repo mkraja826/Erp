@@ -34,7 +34,11 @@ export default function ProcurementFlowPage(){
   const [lastSuccess,setLastSuccess]=useState(false);
 
   useEffect(()=>{void load();},[]);
-  useEffect(()=>{if(active==="post_gr")setValues(v=>({...v,movement_type:v.movement_type||"101",posting_date:v.posting_date||new Date().toISOString().slice(0,10),document_date:v.document_date||new Date().toISOString().slice(0,10)}));},[active]);
+  useEffect(()=>{
+    const today=new Date().toISOString().slice(0,10);
+    if(active==="post_gr")setValues(v=>({...v,movement_type:v.movement_type||"101",posting_date:v.posting_date||today,document_date:v.document_date||today}));
+    if(active==="post_invoice")setValues(v=>({...v,posting_date:v.posting_date||today,invoice_date:v.invoice_date||today}));
+  },[active]);
   async function load(){const [a,b]=await Promise.all([authenticatedFetch("/api/procurement-flow"),authenticatedFetch("/api/erp-runtime")]);if(!a||!b)return;setFlow(await a.json());setRuntime(await b.json());}
   const master=(type:string)=>runtime?.masterData.filter(x=>x.entity_type===type)??[];
   const prs=flow?.stages.requisition??[];const pos=flow?.stages.purchaseOrders??[];const grs=flow?.stages.goodsReceipts??[];const ivs=flow?.stages.invoices??[];
@@ -47,15 +51,20 @@ export default function ProcurementFlowPage(){
     {key:"post_invoice" as Action,label:"4. Invoice",done:ivs.some(x=>x.status==="posted")},
   ],[prs.length,pos.length,grs.length,ivs]);
 
-  const required:Record<Action,string[]>={create_pr:["material","plant","quantity"],create_po:["source_pr","vendor","purchasing_organization","unit_price"],post_gr:["source_po","storage_location","received_quantity","posting_date","document_date","movement_type"],post_invoice:["source_po","invoice_value"]};
+  const required:Record<Action,string[]>={create_pr:["material","plant","quantity"],create_po:["source_pr","vendor","purchasing_organization","unit_price"],post_gr:["source_po","storage_location","received_quantity","posting_date","document_date","movement_type"],post_invoice:["source_po","supplier_invoice_number","invoice_date","posting_date","invoice_value"]};
   const ready=required[active].every(key=>(values[key]??"").trim().length>0);
   const sourceDoc=active==="create_po"?prs.find(x=>x.document_number===values.source_pr):active==="post_gr"||active==="post_invoice"?pos.find(x=>x.document_number===values.source_po):undefined;
   const sourcePoReceipts=sourceDoc?grs.filter(x=>x.header.source_po===sourceDoc.document_number):[];
   const orderedQuantity=Number(sourceDoc?.items?.[0]?.quantity??0);
+  const unitPrice=Number(sourceDoc?.items?.[0]?.unit_price??0);
   const previouslyReceived=sourcePoReceipts.reduce((sum,row)=>sum+Number(row.items?.[0]?.received_quantity??0),0);
   const openQuantity=Math.max(0,orderedQuantity-previouslyReceived);
+  const poValue=orderedQuantity*unitPrice;
+  const receivedValue=previouslyReceived*unitPrice;
+  const enteredInvoiceValue=Number(values.invoice_value??0);
+  const invoiceVariance=enteredInvoiceValue-receivedValue;
 
-  async function post(){if(!ready)return;setPosting(true);setMessage("");setLastSuccess(false);try{const response=await authenticatedFetch("/api/procurement-flow",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:active,data:values})});if(!response)return;const payload=await response.json();if(!response.ok){setMessage(payload.error??"Unable to post document.");return;}setMessage(`${payload.documentNumber} posted${payload.matchStatus?` · ${payload.matchStatus}`:""}${payload.openQuantity!==undefined?` · open qty ${payload.openQuantity}`:""}.`);setLastSuccess(true);setValues({});await load();if(payload.next)setActive(payload.next);}finally{setPosting(false);}}
+  async function post(){if(!ready)return;setPosting(true);setMessage("");setLastSuccess(false);try{const response=await authenticatedFetch("/api/procurement-flow",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:active,data:values})});if(!response)return;const payload=await response.json();if(!response.ok){setMessage(payload.error??"Unable to post document.");return;}setMessage(`${payload.documentNumber} posted${payload.matchStatus?` · ${payload.matchStatus}`:""}${payload.variance!==undefined?` · variance ${Number(payload.variance).toFixed(2)}`:""}${payload.openQuantity!==undefined?` · open qty ${payload.openQuantity}`:""}.`);setLastSuccess(true);setValues({});await load();if(payload.next)setActive(payload.next);}finally{setPosting(false);}}
 
   const showFieldHints=mode==="guided";
   function select(label:string,key:string,options:Array<{value:string;text:string}>,hint:string){return <label className={styles.field}><span className={styles.fieldLabel}>{label}<b className={styles.required}>*</b></span><select value={values[key]??""} onChange={e=>{setValues(v=>({...v,[key]:e.target.value}));setLastSuccess(false);setMessage("");}}><option value="">Select value…</option>{options.map(o=><option value={o.value} key={o.value}>{o.text}</option>)}</select>{showFieldHints&&<small className={styles.fieldHint}>{hint}</small>}</label>}
@@ -70,28 +79,27 @@ export default function ProcurementFlowPage(){
   return <main className="dashboardPage">
     <header className="dashboardTopbar"><Link className="brandLink" href="/dashboard">ERP Edu · Procure-to-Pay</Link><Link href="/dashboard" className="secondaryButton">Dashboard</Link></header>
     <section className="dashboardHero"><div><span className="eyebrow">Enterprise process simulation</span><h1>Run a complete procure-to-pay cycle.</h1><p>Work through connected business documents in the same order an MM user would handle them in a company.</p></div></section>
-
     <div className="flowStepper" aria-label="Simulation mode">{(["guided","assisted","workplace"] as SimulationMode[]).map(x=><button key={x} className={mode===x?"active":""} onClick={()=>{setMode(x);setMessage("");setLastSuccess(false);}}><span>{mode===x?"●":"○"}</span>{modeCopy[x].label}</button>)}</div>
     <p style={{margin:"-6px 0 18px",fontSize:12,color:"#667085"}}>{modeCopy[mode].summary}</p>
-
     <div className="flowStepper">{steps.map(step=><button key={step.key} className={`${active===step.key?"active":""} ${step.done?"done":""}`} onClick={()=>{setActive(step.key);setValues({});setMessage("");setLastSuccess(false);}}><span>{step.done?"✓":"○"}</span>{step.label}</button>)}</div>
 
     <ErpTrainingShell title={current.title} transactionLabel={current.transaction} modeLabel="MM Operations Client" simulationMode={mode} status={shellStatus} actions={<>{actionPrompt&&<span className={styles.actionHelp}>{actionPrompt}</span>}<button className={styles.postButton} onClick={post} disabled={posting||!ready}>{posting?"Posting document…":active==="post_invoice"?"Verify & Post":"Post document"}</button></>}>
       <div className={styles.transactionWorkspace}>
         <div className={styles.documentIntro}><div><h3>{current.title}</h3>{mode!=="workplace"&&<p>{current.description}</p>}</div><span className={styles.documentType}>MM · {current.type}</span></div>
-
         <div className={styles.contextStrip}>
           <div className={styles.contextItem}><span>Company code</span><strong>1000 · Training Enterprise</strong></div>
           <div className={styles.contextItem}><span>Process</span><strong>Procure-to-Pay</strong></div>
           <div className={styles.contextItem}><span>Source document</span><strong>{sourceDoc?.document_number??"Not selected"}</strong></div>
           <div className={styles.contextItem}><span>Document status</span><strong>{posting?"Processing":"Draft"}</strong></div>
         </div>
-
         {active==="post_gr"&&sourceDoc&&<div className={styles.contextStrip}>
-          <div className={styles.contextItem}><span>PO status</span><strong>{sourceDoc.status}</strong></div>
-          <div className={styles.contextItem}><span>Ordered quantity</span><strong>{orderedQuantity}</strong></div>
-          <div className={styles.contextItem}><span>Previously received</span><strong>{previouslyReceived}</strong></div>
-          <div className={styles.contextItem}><span>Open quantity</span><strong>{openQuantity}</strong></div>
+          <div className={styles.contextItem}><span>PO status</span><strong>{sourceDoc.status}</strong></div><div className={styles.contextItem}><span>Ordered quantity</span><strong>{orderedQuantity}</strong></div><div className={styles.contextItem}><span>Previously received</span><strong>{previouslyReceived}</strong></div><div className={styles.contextItem}><span>Open quantity</span><strong>{openQuantity}</strong></div>
+        </div>}
+        {active==="post_invoice"&&sourceDoc&&<div className={styles.contextStrip} aria-label="Three way match summary">
+          <div className={styles.contextItem}><span>PO value</span><strong>{poValue.toFixed(2)}</strong></div>
+          <div className={styles.contextItem}><span>GR value</span><strong>{receivedValue.toFixed(2)}</strong></div>
+          <div className={styles.contextItem}><span>Invoice value</span><strong>{enteredInvoiceValue?enteredInvoiceValue.toFixed(2):"—"}</strong></div>
+          <div className={styles.contextItem}><span>Variance</span><strong>{enteredInvoiceValue?`${invoiceVariance>0?"+":""}${invoiceVariance.toFixed(2)}`:"—"}</strong></div>
         </div>}
 
         <section className={styles.section}>
@@ -100,16 +108,17 @@ export default function ProcurementFlowPage(){
             {active==="create_pr"&&<>{select("Material","material",master("material").map(x=>({value:x.code,text:`${x.code} · ${x.name}`})),"Material master item to be requested")}{select("Plant","plant",master("plant").map(x=>({value:x.code,text:`${x.code} · ${x.name}`})),"Business location that requires the material")}{input("Requested quantity","quantity","number","Quantity requested by the business")}</>}
             {active==="create_po"&&<>{select("Source purchase requisition","source_pr",availablePrs.map(x=>({value:x.document_number,text:`${x.document_number} · ${x.status}`})),"Open internal requirement")}{select("Vendor","vendor",master("vendor").map(x=>({value:x.code,text:`${x.code} · ${x.name}`})),"Approved supplier")}{select("Purchasing organization","purchasing_organization",master("purchasing_organization").map(x=>({value:x.code,text:`${x.code} · ${x.name}`})),"Buying organization responsible for the PO")}{input("Unit price","unit_price","number","Agreed supplier price per unit")}</>}
             {active==="post_gr"&&<>{select("Source purchase order","source_po",availablePos.map(x=>({value:x.document_number,text:`${x.document_number} · ${x.status}`})),"Open PO being received")}{input("Posting date","posting_date","date","Accounting date for the stock posting")}{input("Document date","document_date","date","Date shown on the delivery document")}{input("Movement type","movement_type","text","101 · Goods receipt for purchase order",true)}{select("Storage location","storage_location",master("storage_location").map(x=>({value:x.code,text:`${x.code} · ${x.name}`})),"Stock location where material will be stored")}{input("Received quantity","received_quantity","number",`Physical quantity received; ${openQuantity||0} currently open`)}</>}
-            {active==="post_invoice"&&<>{select("Source purchase order","source_po",availablePos.map(x=>({value:x.document_number,text:`${x.document_number} · ${x.status}`})),"Open PO referenced by the supplier invoice")}{input("Supplier invoice value","invoice_value","number","Total amount claimed by the supplier")}</>}
+            {active==="post_invoice"&&<>{select("Source purchase order","source_po",availablePos.map(x=>({value:x.document_number,text:`${x.document_number} · ${x.status}`})),"Open PO referenced by the supplier invoice")}{input("Supplier invoice number","supplier_invoice_number","text","Unique invoice number printed by the vendor")}{input("Invoice date","invoice_date","date","Date printed on the supplier invoice")}{input("Posting date","posting_date","date","Accounting date for invoice posting")}{input("Supplier invoice value","invoice_value","number","Total amount claimed by the supplier")}</>}
           </div>
         </section>
 
         <section className={styles.section}>
-          <div className={styles.sectionHeader}><strong>Item overview</strong><span>Line 10 · Material item</span></div>
-          <div className={styles.itemTableWrap}><table className={styles.itemTable}><thead><tr><th>Item</th><th>Material</th><th>Quantity</th><th>Plant / Location</th><th>Source</th><th>Status</th></tr></thead><tbody><tr><td>10</td><td>{itemMaterial}</td><td>{itemQty}</td><td>{values.plant||values.storage_location||String(sourceDoc?.header.plant??"—")}</td><td>{sourceDoc?.document_number??"—"}</td><td className={styles.mutedCell}>{active==="post_gr"&&sourceDoc?`${sourceDoc.status} · ${openQuantity} open`:ready?"Ready":"Incomplete"}</td></tr></tbody></table></div>
+          <div className={styles.sectionHeader}><strong>{active==="post_invoice"?"Three-way match":"Item overview"}</strong><span>{active==="post_invoice"?"PO · GR · Invoice":"Line 10 · Material item"}</span></div>
+          <div className={styles.itemTableWrap}><table className={styles.itemTable}><thead>{active==="post_invoice"?<tr><th>Reference</th><th>Quantity</th><th>Unit price</th><th>Value</th><th>Status</th></tr>:<tr><th>Item</th><th>Material</th><th>Quantity</th><th>Plant / Location</th><th>Source</th><th>Status</th></tr>}</thead><tbody>{active==="post_invoice"?<><tr><td>Purchase order</td><td>{orderedQuantity}</td><td>{unitPrice.toFixed(2)}</td><td>{poValue.toFixed(2)}</td><td>{sourceDoc?.status??"—"}</td></tr><tr><td>Goods received</td><td>{previouslyReceived}</td><td>{unitPrice.toFixed(2)}</td><td>{receivedValue.toFixed(2)}</td><td>{previouslyReceived>0?"Received":"No receipt"}</td></tr><tr><td>Supplier invoice</td><td>—</td><td>—</td><td>{enteredInvoiceValue?enteredInvoiceValue.toFixed(2):"—"}</td><td>{!enteredInvoiceValue?"Enter amount":Math.abs(invoiceVariance)<0.01?"Matched":"Variance"}</td></tr></>:<tr><td>10</td><td>{itemMaterial}</td><td>{itemQty}</td><td>{values.plant||values.storage_location||String(sourceDoc?.header.plant??"—")}</td><td>{sourceDoc?.document_number??"—"}</td><td className={styles.mutedCell}>{active==="post_gr"&&sourceDoc?`${sourceDoc.status} · ${openQuantity} open`:ready?"Ready":"Incomplete"}</td></tr>}</tbody></table></div>
         </section>
 
         {message&&<div className={`${styles.statusCallout} ${lastSuccess?styles.success:styles.warning}`}><span className={styles.statusIcon}>{lastSuccess?"✓":"!"}</span><span>{message}</span></div>}
+        {!message&&active==="post_invoice"&&enteredInvoiceValue>0&&Math.abs(invoiceVariance)>=0.01&&<div className={`${styles.statusCallout} ${styles.warning}`}><span className={styles.statusIcon}>!</span><span>Invoice will be blocked: variance {invoiceVariance>0?"+":""}{invoiceVariance.toFixed(2)} against received value.</span></div>}
         {!message&&mode==="guided"&&<div className={`${styles.statusCallout} ${styles.ready}`}><span className={styles.statusIcon}>i</span><span>Enter the business values above. The document can be posted only when all required fields are complete.</span></div>}
       </div>
     </ErpTrainingShell>
