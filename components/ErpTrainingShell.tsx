@@ -5,10 +5,13 @@ import { authenticatedFetch } from "../lib/auth-client";
 import LearnerGuide from "./LearnerGuide";
 import styles from "./ErpTrainingShell.module.css";
 
+export type SimulationMode = "guided" | "assisted" | "workplace";
+
 type Props = {
   title: string;
   transactionLabel: string;
   modeLabel?: string;
+  simulationMode?: SimulationMode;
   status?: "ready" | "checking" | "success" | "warning";
   children: ReactNode;
   actions?: ReactNode;
@@ -25,8 +28,9 @@ const navItems = [
   {label:"Invoices",icon:"▧"},
   {label:"Reports",icon:"◫"},
 ];
+const modeNames:Record<SimulationMode,string>={guided:"Guided Simulation",assisted:"Assisted Simulation",workplace:"Workplace Simulation"};
 
-export default function ErpTrainingShell({ title, transactionLabel, modeLabel = "Training client", status = "ready", children, actions, learningGoal, currentTask, nextStep }: Props) {
+export default function ErpTrainingShell({ title, transactionLabel, modeLabel = "Training client", simulationMode="guided", status = "ready", children, actions, learningGoal, currentTask, nextStep }: Props) {
   const [activeTab, setActiveTab] = useState("Document");
   const [activeNav, setActiveNav] = useState("Procurement");
   const [search, setSearch] = useState("");
@@ -44,15 +48,17 @@ export default function ErpTrainingShell({ title, transactionLabel, modeLabel = 
 
   const message = useMemo(() => {
     if (status === "checking") return "Validating business data and document consistency…";
-    if (status === "success") return "Document check completed successfully.";
-    if (status === "warning") return "Review the highlighted business values before continuing.";
-    return "System ready. Enter the required business data and continue when complete.";
-  }, [status]);
+    if (status === "success") return simulationMode==="workplace"?"Transaction posted.":"Document check completed successfully.";
+    if (status === "warning") return simulationMode==="guided"?"Review the highlighted business values before continuing.":"Transaction requires attention.";
+    if(simulationMode==="guided") return "System ready. Enter the required business data and continue when complete.";
+    if(simulationMode==="assisted") return "System ready. Hints are available where needed.";
+    return "System ready.";
+  }, [status,simulationMode]);
 
   const statusLabel=status==="checking"?"Processing":status==="success"?"Verified":status==="warning"?"Attention":"Ready";
 
   return (
-    <section className={styles.shell} aria-label="ERP training workspace">
+    <section className={styles.shell} aria-label="ERP training workspace" data-simulation-mode={simulationMode}>
       <aside className={styles.sidebar}>
         <div className={styles.brand}>
           <div className={styles.logo}>ERP</div>
@@ -71,7 +77,7 @@ export default function ErpTrainingShell({ title, transactionLabel, modeLabel = 
         </div>
 
         <div className={styles.topbar}>
-          <div className={styles.mode}><strong>{modeLabel}</strong><span>Enterprise process simulation</span></div>
+          <div className={styles.mode}><strong>{modeLabel}</strong><span>{modeNames[simulationMode]}</span></div>
           <div className={styles.searchWrap}>
             <div className={styles.search}><span className={styles.searchIcon}>⌕</span><input value={search} onChange={(e)=>setSearch(e.target.value)} placeholder="Search transaction, document or task" aria-label="Search ERP workspace" /></div>
             {search&&runtime&&<div className={styles.searchResults}>{runtime.transactions.length?runtime.transactions.map(t=><button type="button" key={t.code} onClick={()=>setSearch(t.code)}><strong>{t.code}</strong><span>{t.name}</span><small>{t.area}</small></button>):<span className={styles.emptySearch}>No matching transaction</span>}</div>}
@@ -86,7 +92,7 @@ export default function ErpTrainingShell({ title, transactionLabel, modeLabel = 
           <div className={styles.contextMeta}>
             <div className={styles.metaItem}><span>Document</span><strong>New</strong></div>
             <div className={styles.metaItem}><span>User role</span><strong>Junior MM User</strong></div>
-            <div className={styles.metaItem}><span>Mode</span><strong>Guided Simulation</strong></div>
+            <div className={styles.metaItem}><span>Mode</span><strong>{modeNames[simulationMode]}</strong></div>
           </div>
         </div>
 
@@ -95,16 +101,16 @@ export default function ErpTrainingShell({ title, transactionLabel, modeLabel = 
         </div>
 
         <div className={styles.workspace}><div className={styles.canvas}>
-          <LearnerGuide
+          {simulationMode!=="workplace"&&<LearnerGuide
             compact
             learning={learningGoal ?? `How ${transactionLabel} works in a business process`}
             now={currentTask ?? title}
-            next={nextStep ?? "Check the result, then continue to the next business step"}
-          />
+            next={simulationMode==="guided"?(nextStep ?? "Check the result, then continue to the next business step"):"Complete the transaction using the available business context"}
+          />}
           {children}
         </div></div>
         {actions&&<div className={styles.actions}>{actions}</div>}
-        <div className={styles.status} data-status={status} role="status" aria-live="polite"><span className={styles.dot}/><span>{message}</span><div className={styles.statusRight}><span>{statusLabel}</span><span>MM Workspace</span></div></div>
+        <div className={styles.status} data-status={status} role="status" aria-live="polite"><span className={styles.dot}/><span>{message}</span><div className={styles.statusRight}><span>{statusLabel}</span><span>{modeNames[simulationMode]}</span></div></div>
       </div>
     </section>
   );
