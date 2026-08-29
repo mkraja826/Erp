@@ -31,6 +31,9 @@ test.describe('MM to FI accounting impact', () => {
     expect(result.ivFi.balanced).toBe(true);expect(result.ivFi.debit).toBe(result.ivFi.credit);expect(result.ivFi.items).toEqual(expect.arrayContaining([expect.objectContaining({account:'210000',debit:350}),expect.objectContaining({account:'300000',credit:350})]));
     expect(result.reversal.status).toBe('reversed');expect(result.reversal.balanced).toBe(true);expect(result.reversal.reversalDocument).toMatch(/^FI-/);
 
-    await page.goto('/accounting-impact');await expect(page.getByRole('heading',{name:'See what procurement posts into Finance.'})).toBeVisible();await expect(page.getByText(result.gr)).toBeVisible();await expect(page.getByText(result.grFi.documentNumber)).toBeVisible();
+    await page.goto('/accounting-impact');
+    await expect(page.getByRole('heading',{name:'See what procurement posts into Finance.'})).toBeVisible();
+    await expect(page.getByRole('cell',{name:result.gr,exact:true})).toBeVisible();
+    await expect(page.getByText(result.grFi.documentNumber,{exact:true}).first()).toBeVisible();
   });
 });
