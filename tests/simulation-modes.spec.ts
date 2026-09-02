@@ -12,7 +12,7 @@ async function signIn(page: import('@playwright/test').Page) {
 }
 
 test.describe('Procurement simulation modes', () => {
-  test('progressively removes coaching from guided to assisted to workplace', async ({ page }) => {
+  test('progressively removes coaching and measures requested assistance', async ({ page }) => {
     await signIn(page);
     await page.goto('/procurement-flow');
 
@@ -24,16 +24,23 @@ test.describe('Procurement simulation modes', () => {
     await expect(page.locator('[data-simulation-mode="guided"]')).toHaveCount(1);
     await expect(page.getByText("What you're learning").first()).toBeVisible();
     await expect(page.getByText('Material master item to be requested')).toBeVisible();
+    await expect(page.locator('[data-training-metrics]')).toContainText('82/100');
 
     await assisted.click();
     await expect(page.locator('[data-simulation-mode="assisted"]')).toHaveCount(1);
-    await expect(page.getByText("What you're learning").first()).toBeVisible();
+    await expect(page.getByText("What you're learning")).toHaveCount(0);
     await expect(page.getByText('Material master item to be requested')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Need a hint' })).toBeVisible();
+    await page.getByRole('button', { name: 'Need a hint' }).click();
+    await expect(page.getByText("What you're learning").first()).toBeVisible();
+    await expect(page.locator('[data-help-requests]')).toContainText('Hints 1');
 
     await workplace.click();
     await expect(page.locator('[data-simulation-mode="workplace"]')).toHaveCount(1);
     await expect(page.getByText("What you're learning")).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Need a hint' })).toHaveCount(0);
     await expect(page.getByText('Capture an internal material requirement before a supplier order is created.')).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Post document' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Finish session' })).toBeVisible();
   });
 });
