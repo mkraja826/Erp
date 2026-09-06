@@ -4,6 +4,7 @@ const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 const storageKey = "erp-edu-session";
 const refreshSkewSeconds = 120;
+let refreshInFlight: Promise<AuthSession | null> | null = null;
 
 export type AuthSession = {
   access_token: string;
@@ -16,7 +17,10 @@ export type AuthSession = {
 
 function config() {
   if (!url || !key) throw new Error("Supabase auth configuration is missing.");
-  return { url, key };
+  let parsed: URL;
+  try { parsed = new URL(url); } catch { throw new Error("Supabase auth URL is invalid."); }
+  if (parsed.protocol !== "https:") throw new Error("Supabase auth URL must use HTTPS.");
+  return { url: parsed.origin, key };
 }
 
 function withExpiry(session: AuthSession): AuthSession {
@@ -47,16 +51,14 @@ export function signOut() {
   window.dispatchEvent(new Event("erp-auth-change"));
 }
 
-export async function refreshSession(session?: AuthSession | null) {
-  const current = session ?? getStoredSession();
-  if (!current?.refresh_token) return null;
+async function performRefresh(current: AuthSession) {
   const cfg = config();
   const response = await fetch(`${cfg.url}/auth/v1/token?grant_type=refresh_token`, {
     method: "POST",
     headers: { apikey: cfg.key, "Content-Type": "application/json" },
     body: JSON.stringify({ refresh_token: current.refresh_token }),
   });
-  const data = await response.json();
+  const data = await response.json().catch(() => null);
   if (!response.ok || !data?.access_token) {
     signOut();
     return null;
@@ -64,6 +66,15 @@ export async function refreshSession(session?: AuthSession | null) {
   const refreshed = withExpiry(data as AuthSession);
   storeSession(refreshed);
   return refreshed;
+}
+
+export async function refreshSession(session?: AuthSession | null) {
+  const current = session ?? getStoredSession();
+  if (!current?.refresh_token) return null;
+  if (!refreshInFlight) {
+    refreshInFlight = performRefresh(current).finally(() => { refreshInFlight = null; });
+  }
+  return refreshInFlight;
 }
 
 export async function getValidSession() {
