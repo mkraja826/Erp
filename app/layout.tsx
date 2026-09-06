@@ -1,10 +1,12 @@
 import type { Metadata, Viewport } from "next";
+import MobileLearnerNav from "../components/mobile-learner-nav";
 import "./globals.css";
 import "./erp-practice.css";
 import "./erp-shell.css";
 import "./procurement-flow.css";
 import "./microlearning.css";
 import "./mobile-v2.css";
+import "./mobile-learner-nav.css";
 import "./worklab-v2.css";
 import "./evidence-v2.css";
 import "./public-v2.css";
@@ -61,7 +63,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>{children}<MobileLearnerNav /></body>
     </html>
   );
 }
