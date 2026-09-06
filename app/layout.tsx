@@ -5,6 +5,7 @@ import "./erp-practice.css";
 import "./erp-shell.css";
 import "./procurement-flow.css";
 import "./microlearning.css";
+import "./quiz-options.css";
 import "./mobile-v2.css";
 import "./mobile-learner-nav.css";
 import "./worklab-v2.css";
