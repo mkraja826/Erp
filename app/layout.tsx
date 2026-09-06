@@ -10,6 +10,7 @@ import "./mobile-learner-nav.css";
 import "./worklab-v2.css";
 import "./evidence-v2.css";
 import "./public-v2.css";
+import "./accessibility-v2.css";
 
 const description =
   "A practical SAP learning platform with AI guidance, verified practice, simulated work experience, and job-readiness evidence.";
