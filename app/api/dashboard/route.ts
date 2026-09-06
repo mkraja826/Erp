@@ -7,6 +7,7 @@ type LessonRow = { id: string; title: string; position: number; module_id: strin
 type ProgressRow = { lesson_id: string; status: string; attempts: number };
 type AttemptRow = { score: number; ai_help_count: number };
 type AiHelpRow = { id: string };
+type ErpDocRow = { id: string; document_type: string; status: string; header: Record<string, unknown> };
 
 type CourseProgress = {
   course: CourseRow;
@@ -68,16 +69,11 @@ export async function GET(request: Request) {
   const mm = await loadCourseProgress("sap-mm-level-1", completedSet, accessToken);
   if (!foundation || !mm) return NextResponse.json({ error: "Learning path not found" }, { status: 404 });
 
-  const attempts = await supabaseRest<AttemptRow[]>(
-    `exercise_attempts?user_id=eq.${user.id}&select=score,ai_help_count`,
-    {},
-    accessToken
-  );
-  const aiEvents = await supabaseRest<AiHelpRow[]>(
-    `ai_help_events?user_id=eq.${user.id}&select=id`,
-    {},
-    accessToken
-  );
+  const [attempts, aiEvents, workplaceDocs] = await Promise.all([
+    supabaseRest<AttemptRow[]>(`exercise_attempts?user_id=eq.${user.id}&select=score,ai_help_count`, {}, accessToken),
+    supabaseRest<AiHelpRow[]>(`ai_help_events?user_id=eq.${user.id}&select=id`, {}, accessToken),
+    supabaseRest<ErpDocRow[]>(`erp_documents?user_id=eq.${user.id}&document_type=in.(COMPETENCY_PROFILE,MANAGER_REVIEW,FINAL_WORKPLACE_CERTIFICATION)&select=id,document_type,status,header`, {}, accessToken),
+  ]);
 
   const xp = attempts.reduce((sum, row) => sum + row.score, 0);
   const totalAttempts = progress.reduce((sum, row) => sum + row.attempts, 0);
@@ -100,6 +96,12 @@ export async function GET(request: Request) {
       accessToken
     );
   }
+
+  const competency = workplaceDocs.find((d) => d.document_type === "COMPETENCY_PROFILE");
+  const managerReview = workplaceDocs.find((d) => d.document_type === "MANAGER_REVIEW");
+  const finalCertification = workplaceDocs.find((d) => d.document_type === "FINAL_WORKPLACE_CERTIFICATION");
+  const overall = Number(competency?.header?.overall ?? 0);
+  const recommendation = String(managerReview?.header?.recommendation ?? "not_reviewed");
 
   return NextResponse.json({
     authenticated: true,
@@ -127,5 +129,12 @@ export async function GET(request: Request) {
     },
     totals: { xp, attempts: totalAttempts, aiHelpUsage },
     workLabUnlocked: foundation.isComplete && mm.isComplete,
+    workplace: {
+      competencyProfile: Boolean(competency),
+      overall: Number.isFinite(overall) ? overall : 0,
+      managerReview: Boolean(managerReview),
+      recommendation,
+      finalCertification: Boolean(finalCertification),
+    },
   });
 }

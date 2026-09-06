@@ -18,7 +18,10 @@ type DashboardData = {
   mm: CourseCardData;
   totals: { xp: number; attempts: number; aiHelpUsage: number };
   workLabUnlocked: boolean;
+  workplace: { competencyProfile: boolean; overall: number; managerReview: boolean; recommendation: string; finalCertification: boolean };
 };
+
+function recommendationLabel(value:string){return value==="recommended"?"Recommended":value==="recommended_with_supervision"?"Recommended with supervision":value==="not_yet_ready"?"Not yet ready":"Not reviewed";}
 
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
@@ -51,11 +54,24 @@ export default function DashboardPage() {
 
   const current = data.foundation.complete ? data.mm : data.foundation;
   const totalCompleted = data.foundation.stats.completedLessons + data.mm.stats.completedLessons;
+  const pathStage = data.workplace.finalCertification ? 6 : data.workplace.managerReview ? 5 : data.workplace.competencyProfile ? 4 : data.workLabUnlocked ? 3 : data.foundation.complete ? 2 : 1;
 
   return <main className="dashboardPage">
     <header className="dashboardTopbar"><Link href="/" className="brandLink">ERP Edu</Link><div className="dashboardUser"><span>{data.learner.email}</span><button className="ghostButton" onClick={() => { signOut(); window.location.href = "/"; }}>Sign out</button></div></header>
 
-    <section className="dashboardHero"><div><span className="eyebrow">Learner dashboard</span><h1>Start with SAP Foundations. Then learn SAP MM.</h1><p>Build the basics first, then move into Materials Management and realistic ERP work.</p></div><div className="dashboardProgress"><strong>{current.stats.progressPercent}%</strong><span>{current.course.title}</span></div></section>
+    <section className="dashboardHero"><div><span className="eyebrow">Your ERP career path</span><h1>Learn → Practice → Prove workplace readiness.</h1><p>Follow one clear path from SAP basics to realistic ERP work and final workplace certification.</p></div><div className="dashboardProgress"><strong>{data.workplace.finalCertification ? "✓" : `${current.stats.progressPercent}%`}</strong><span>{data.workplace.finalCertification ? "Workplace certified" : current.course.title}</span></div></section>
+
+    <section className="dashboardCourseCard" aria-label="Learning path progress">
+      <span className="eyebrow">Progress roadmap</span>
+      <div className="dashboardStats">
+        <article><strong>{pathStage >= 1 ? "✓" : "1"}</strong><span>Foundations</span></article>
+        <article><strong>{pathStage >= 2 ? "✓" : "2"}</strong><span>SAP MM</span></article>
+        <article><strong>{pathStage >= 3 ? "✓" : "3"}</strong><span>Work Lab</span></article>
+        <article><strong>{pathStage >= 4 ? "✓" : "4"}</strong><span>Competency</span></article>
+        <article><strong>{pathStage >= 5 ? "✓" : "5"}</strong><span>Manager review</span></article>
+        <article><strong>{pathStage >= 6 ? "✓" : "6"}</strong><span>Certification</span></article>
+      </div>
+    </section>
 
     <section className="dashboardGrid">
       <div style={{ display: "grid", gap: "1rem" }}>
@@ -81,6 +97,6 @@ export default function DashboardPage() {
       <div className="dashboardStats"><article><strong>{data.totals.xp}</strong><span>Verified XP</span></article><article><strong>{data.totals.attempts}</strong><span>Practice attempts</span></article><article><strong>{data.totals.aiHelpUsage}</strong><span>AI help uses</span></article><article><strong>{totalCompleted}</strong><span>Lessons mastered</span></article></div>
     </section>
 
-    <section className="dashboardLowerGrid"><article className="nextStepCard"><span className="eyebrow">Next step</span><h2>{current.nextLesson?.title ?? (data.foundation.complete ? "SAP MM Level 1 completed" : "SAP Foundations completed")}</h2><p>{current.nextLesson ? `Continue in ${current.course.title}. Your saved progress stays with your account.` : data.foundation.complete ? "Move into independent ERP practice." : "SAP MM Level 1 is now unlocked."}</p><div className="exerciseActions"><Link className="secondaryButton" href="/courses/sap-foundations">SAP Foundations</Link>{data.mm.unlocked && <Link className="secondaryButton" href="/courses/sap-mm-level-1">SAP MM Level 1</Link>}<Link className="secondaryButton" href="/skills">Verified skills</Link>{data.workLabUnlocked&&<Link className="primaryButton" href="/job-readiness">Job-readiness assessment</Link>}</div></article><article className={`workGateCard ${data.workLabUnlocked ? "unlocked" : "locked"}`}><span className="eyebrow">Work Lab</span><h2>{data.workLabUnlocked ? "Work environment unlocked" : "Complete the learning path first"}</h2><p>{data.workLabUnlocked ? "You can now perform realistic junior SAP MM tickets, investigate incidents, and attempt the independent readiness gate." : "Finish SAP Foundations and SAP MM Level 1 before entering the workplace simulation."}</p>{data.workLabUnlocked ? <Link className="primaryButton" href="/work-lab">Enter Work Lab</Link> : <span className="workGateStatus">Foundations → SAP MM → Work Lab</span>}</article></section>
+    <section className="dashboardLowerGrid"><article className="nextStepCard"><span className="eyebrow">Next best action</span><h2>{data.workplace.finalCertification ? "Final workplace certification complete" : data.workplace.managerReview ? "Complete your workplace certification" : data.workplace.competencyProfile ? "Review your employability evidence" : data.workLabUnlocked ? "Enter your workplace simulation" : current.nextLesson?.title ?? "Continue your learning path"}</h2><p>{data.workplace.finalCertification ? "Your workplace evidence chain is complete and recorded." : data.workplace.managerReview ? `Manager outcome: ${recommendationLabel(data.workplace.recommendation)}.` : data.workplace.competencyProfile ? `Current competency score: ${data.workplace.overall}.` : data.workLabUnlocked ? "Work realistic tickets, resolve incidents, and build evidence for readiness." : "Your saved progress stays with your account."}</p><div className="exerciseActions">{!data.workLabUnlocked ? <><Link className="secondaryButton" href="/courses/sap-foundations">SAP Foundations</Link>{data.mm.unlocked && <Link className="secondaryButton" href="/courses/sap-mm-level-1">SAP MM Level 1</Link>}</> : <><Link className="secondaryButton" href="/work-lab/inbox">Workplace inbox</Link><Link className="secondaryButton" href="/skills">Competency profile</Link><Link className="secondaryButton" href="/work-lab/manager-review">Manager review</Link><Link className="primaryButton" href="/work-lab/final-certification">Final certification</Link></>}</div></article><article className={`workGateCard ${data.workLabUnlocked ? "unlocked" : "locked"}`}><span className="eyebrow">Workplace readiness</span><h2>{data.workplace.finalCertification ? "Certified" : data.workLabUnlocked ? recommendationLabel(data.workplace.recommendation) : "Complete the learning path first"}</h2><p>{data.workLabUnlocked ? `Competency ${data.workplace.overall || 0}/100 · ${data.workplace.managerReview ? "Manager review recorded" : "Manager review pending"}.` : "Finish SAP Foundations and SAP MM Level 1 before entering workplace simulation."}</p>{data.workLabUnlocked ? <Link className="primaryButton" href="/work-lab/inbox">Open workplace inbox</Link> : <span className="workGateStatus">Foundations → SAP MM → Work Lab</span>}</article></section>
   </main>;
 }

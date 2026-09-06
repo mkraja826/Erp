@@ -129,6 +129,8 @@ const mm = await loadCourse('sap-mm-level-1');
 
 const completedEmail = workLabEmail(email);
 const completedUserId = await ensureUser(completedEmail, 'ERP Edu E2E Work Lab Learner', 'ci-e2e-work-lab');
+await resetLearnerLearning(completedUserId);
+await resetLearnerErpState(completedUserId);
 const completedAt = new Date().toISOString();
 await seedCourseComplete(completedUserId, foundation.courseId, foundation.lessons, completedAt);
 await seedCourseComplete(completedUserId, mm.courseId, mm.lessons, completedAt);
