@@ -1,0 +1,14 @@
+.mobileLearnerNav{display:none}
+@media(max-width:899px){
+  body:has(.mobileLearnerNav){padding-bottom:calc(76px + env(safe-area-inset-bottom))}
+  .mobileLearnerNav{display:block;position:fixed;left:0;right:0;bottom:0;z-index:80;padding:8px 10px calc(8px + env(safe-area-inset-bottom));background:rgba(247,248,251,.96);border-top:1px solid #dfe4ed;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);box-shadow:0 -10px 28px rgba(33,42,66,.08)}
+  .mobileLearnerNavInner{max-width:620px;margin:0 auto;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px}
+  .mobileLearnerNavItem{min-height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border-radius:12px;text-decoration:none;color:#697386;font-size:10px;font-weight:800;letter-spacing:.01em}
+  .mobileLearnerNavItem.active{background:#eeeaff;color:#5140c8}
+  .mobileLearnerNavIcon{font-size:18px;line-height:1}
+  .mobileLearnerNavItem:focus-visible{outline:3px solid rgba(108,82,255,.24);outline-offset:1px}
+  .dashboardPage,.coursePage{padding-bottom:28px}
+  .dashboardTopbar,.courseTopbar{top:0}
+  .primaryButton,.secondaryButton,.ghostButton,.lightButton,.hintButton{min-height:48px}
+  .dashboardStats article,.nextStepCard,.workGateCard,.dashboardCourseCard{scroll-margin-bottom:100px}
+}
