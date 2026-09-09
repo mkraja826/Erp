@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseUser, supabaseRest } from "../../../lib/supabase";
 
-type ExpectedState = { expected?: unknown; hints?: string[]; required_fields?: string[]; aliases?: string[]; explanation?: string };
+type ExpectedState = { expected?: unknown; hints?: string[]; required_fields?: string[]; aliases?: string[]; accepted?: string[]; explanation?: string };
 type ExerciseRow = { id: string; lesson_id: string; max_score: number; expected_state: ExpectedState };
 type ProgressRow = { attempts: number; status: string };
 
@@ -61,14 +61,14 @@ function displayAnswer(expected: unknown) {
 export async function POST(request: Request) {
   const body = (await request.json()) as { exerciseId?: string; answer?: unknown; assistanceLevel?: number };
   if (!body.exerciseId) return NextResponse.json({ error: "exerciseId is required" }, { status: 400 });
-
   const query = new URLSearchParams({ id: `eq.${body.exerciseId}`, select: "id,lesson_id,max_score,expected_state", limit: "1" });
   const rows = await supabaseRest<ExerciseRow[]>(`exercises?${query.toString()}`);
   const exercise = rows[0];
   if (!exercise) return NextResponse.json({ error: "Exercise not found" }, { status: 404 });
 
   const assistanceLevel = Math.min(Math.max(body.assistanceLevel ?? 0, 0), 3);
-  const result = scoreAnswer(exercise.expected_state.expected, body.answer, exercise.expected_state.aliases ?? []);
+  const acceptedAnswers = [...(exercise.expected_state.accepted ?? []), ...(exercise.expected_state.aliases ?? [])];
+  const result = scoreAnswer(exercise.expected_state.expected, body.answer, acceptedAnswers);
   const passed = result.score >= 80;
   const score = Math.round((result.score / 100) * exercise.max_score);
   const revealAnswer = !passed && assistanceLevel >= 3;
@@ -79,56 +79,18 @@ export async function POST(request: Request) {
   const authorization = request.headers.get("authorization");
   const accessToken = authorization?.startsWith("Bearer ") ? authorization.slice(7) : undefined;
   let saved = false;
-
   if (accessToken) {
     const user = await getSupabaseUser(accessToken);
     if (user) {
-      await supabaseRest("exercise_attempts", {
-        method: "POST",
-        headers: { Prefer: "return=minimal" },
-        body: JSON.stringify({
-          user_id: user.id,
-          exercise_id: exercise.id,
-          submitted_state: body.answer ?? {},
-          score,
-          result: passed ? "pass" : result.score > 0 ? "partial" : "fail",
-          ai_help_count: assistanceLevel,
-          feedback: { percentage: result.score, missing_fields: result.missing, assistance_level: assistanceLevel, answer_revealed: revealAnswer },
-        }),
-      }, accessToken);
-
+      await supabaseRest("exercise_attempts", { method: "POST", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ user_id: user.id, exercise_id: exercise.id, submitted_state: body.answer ?? {}, score, result: passed ? "pass" : result.score > 0 ? "partial" : "fail", ai_help_count: assistanceLevel, feedback: { percentage: result.score, missing_fields: result.missing, assistance_level: assistanceLevel, answer_revealed: revealAnswer } }) }, accessToken);
       const progressQuery = new URLSearchParams({ user_id: `eq.${user.id}`, lesson_id: `eq.${exercise.lesson_id}`, select: "attempts,status", limit: "1" });
       const current = await supabaseRest<ProgressRow[]>(`lesson_progress?${progressQuery.toString()}`, {}, accessToken);
       const nextAttempts = (current[0]?.attempts ?? 0) + 1;
       const learningComplete = passed || revealAnswer;
-      await supabaseRest("lesson_progress?on_conflict=user_id,lesson_id", {
-        method: "POST",
-        headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
-        body: JSON.stringify({
-          user_id: user.id,
-          lesson_id: exercise.lesson_id,
-          status: learningComplete ? "completed" : "in_progress",
-          attempts: nextAttempts,
-          completed_at: learningComplete ? new Date().toISOString() : null,
-          updated_at: new Date().toISOString(),
-        }),
-      }, accessToken);
+      await supabaseRest("lesson_progress?on_conflict=user_id,lesson_id", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify({ user_id: user.id, lesson_id: exercise.lesson_id, status: learningComplete ? "completed" : "in_progress", attempts: nextAttempts, completed_at: learningComplete ? new Date().toISOString() : null, updated_at: new Date().toISOString() }) }, accessToken);
       saved = true;
     }
   }
 
-  return NextResponse.json({
-    passed,
-    score,
-    percentage: result.score,
-    missingFields: result.missing,
-    feedback,
-    hint: null,
-    saved,
-    lessonId: exercise.lesson_id,
-    learningComplete: passed || revealAnswer,
-    revealedAnswer: revealAnswer ? displayAnswer(exercise.expected_state.expected) : null,
-    explanation: revealAnswer ? (exercise.expected_state.explanation ?? "Compare the expected result with the business event described in the question. The ERP record should reflect what actually happened, not what was merely planned.") : null,
-    assistanceLevel,
-  });
+  return NextResponse.json({ passed, score, percentage: result.score, missingFields: result.missing, feedback, hint: null, saved, lessonId: exercise.lesson_id, learningComplete: passed || revealAnswer, revealedAnswer: revealAnswer ? displayAnswer(exercise.expected_state.expected) : null, explanation: revealAnswer ? (exercise.expected_state.explanation ?? "Compare the expected result with the business event described in the question. The ERP record should reflect what actually happened, not what was merely planned.") : null, assistanceLevel });
 }
