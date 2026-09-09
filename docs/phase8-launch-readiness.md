@@ -2,7 +2,7 @@
 
 ## Current status
 
-Launch decision: **NO-GO until live deployment acceptance is completed.**
+Launch decision: **NO-GO until learning-quality and live deployment acceptance are completed.**
 
 ## Production backend baseline
 
@@ -40,6 +40,21 @@ Launch decision: **NO-GO until live deployment acceptance is completed.**
 - Repository CI validates dependencies, TypeScript, Next.js build, Cloudflare bundle, and the complete browser journey.
 - GitHub currently contains CI only; no repository-managed production deployment workflow is present.
 
+## Phase 8C learning-quality gate
+
+Before launch, SAP Foundations and SAP MM Level 1 must pass the Phase 8C learner-experience gate:
+
+1. Lesson template uses the mobile-first Learn → See → Do → Check flow instead of stacked repetitive cards.
+2. All 17 current learning questions are replaced with application/scenario-oriented prompts.
+3. Multiple-choice answer order is not predictable from source order.
+4. Every learning question offers three progressive hints.
+5. Valid SAP terminology variants are accepted for short answers.
+6. After three hints, a learner may reveal the correct answer and explanation and continue; this completion is recorded as assisted rather than independent mastery.
+7. Workplace and certification assessment continue to protect answer integrity and do not inherit learning-mode answer reveal.
+8. Phase 8C CI quality regression passes.
+9. The refreshed question bank is applied only after compatible Phase 8C application code is deployed.
+10. Real-phone acceptance confirms the redesigned lesson is clear, compact, and easy to learn from.
+
 ## Required launch acceptance gates
 
 The following must be completed against the real production URL before launch:
@@ -57,4 +72,4 @@ The following must be completed against the real production URL before launch:
 
 ## Go / no-go rule
 
-ERP Edu can be marked **GO** only when all launch acceptance gates above pass on the live production deployment with no P0/P1 defects.
+ERP Edu can be marked **GO** only when Phase 8C learning quality and all launch acceptance gates above pass on the live production deployment with no P0/P1 defects.
